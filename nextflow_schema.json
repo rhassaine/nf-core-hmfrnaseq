@@ -43,6 +43,72 @@
                 }
             }
         },
+        "other_options": {
+            "title": "Other options",
+            "type": "object",
+            "fa_icon": "fas fa-book",
+            "description": "Other options specific to this pipeline.",
+            "properties": {
+                "isofox_read_length": {
+                    "type": "integer",
+                    "description": "User defined RNA read length used for Isofox.",
+                    "fa_icon": "fas fa-cog"
+                },
+                "isofox_gc_ratios": {
+                    "type": "string",
+                    "description": "User defined Isofox expected GC ratios file.",
+                    "fa_icon": "fas fa-cog"
+                },
+                "isofox_counts": {
+                    "type": "string",
+                    "description": "User defined Isofox expected counts files (read length dependent).",
+                    "fa_icon": "fas fa-cog"
+                },
+                "isofox_tpm_norm": {
+                    "type": "string",
+                    "description": "User defined Isofox TPM normalisation file for panel data.",
+                    "fa_icon": "fas fa-cog"
+                },
+                "isofox_gene_ids": {
+                    "type": "string",
+                    "description": "User defined Isofox gene list file for panel data.",
+                    "fa_icon": "fas fa-cog"
+                },
+                "isofox_functions": {
+                    "type": "string",
+                    "description": "Semicolon-separated list of Isofox functions to run",
+                    "default": "TRANSCRIPT_COUNTS;ALT_SPLICE_JUNCTIONS;FUSIONS;RETAINED_INTRONS",
+                    "fa_icon": "fas fa-cog"
+                },
+                "fastp_umi_location": {
+                    "type": "string",
+                    "description": "fastp UMI location parameter (--umi_loc).",
+                    "fa_icon": "fas fa-cog"
+                },
+                "fastp_umi_length": {
+                    "type": "integer",
+                    "description": "fastp UMI length parameter (--umi_len)",
+                    "default": 0,
+                    "fa_icon": "fas fa-cog"
+                },
+                "fastp_umi_skip": {
+                    "type": "integer",
+                    "description": "fastp UMI skip parameter (--umi_skip)",
+                    "default": -1,
+                    "fa_icon": "fas fa-cog"
+                },
+                "redux_umi": {
+                    "type": "boolean",
+                    "description": "Enable REDUX UMI processing.",
+                    "fa_icon": "fas fa-cog"
+                },
+                "redux_umi_duplex_delim": {
+                    "type": "string",
+                    "description": "UMI duplex delimiter as used by REDUX.",
+                    "fa_icon": "fas fa-cog"
+                }
+            }
+        },
         "reference_genome_options": {
             "title": "Reference genome options",
             "type": "object",
@@ -53,7 +119,8 @@
                     "type": "string",
                     "description": "Name of iGenomes reference.",
                     "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
+                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details.",
+                    "enum": ["GRCh37_hmf", "GRCh38_hmf"]
                 },
                 "fasta": {
                     "type": "string",
@@ -79,8 +146,49 @@
                     "fa_icon": "fas fa-ban",
                     "hidden": true,
                     "default": "s3://ngi-igenomes/igenomes/"
+                },
+                "ref_data_genome_fasta": {
+                    "type": "string",
+                    "description": "Path to reference genome FASTA.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_fai": {
+                    "type": "string",
+                    "description": "Path to reference genome FAI.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_dict": {
+                    "type": "string",
+                    "description": "Path to reference genome dict.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_bwamem2_index": {
+                    "type": "string",
+                    "description": "Path to reference genome bwa-mem2 index.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_img": {
+                    "type": "string",
+                    "description": "Path to reference genome img.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_gridss_index": {
+                    "type": "string",
+                    "description": "Path to reference genome GRIDSS index.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_star_index": {
+                    "type": "string",
+                    "description": "Path to reference genome STAR index.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "ref_data_genome_gtf": {
+                    "type": "string",
+                    "description": "Path to reference genome GTF.",
+                    "fa_icon": "far fa-file-code"
                 }
-            }
+            },
+            "required": ["genome"]
         },
         "institutional_config_options": {
             "title": "Institutional config options",
@@ -216,7 +324,7 @@
                     "type": "string",
                     "fa_icon": "far fa-check-circle",
                     "description": "Base URL or local path to location of pipeline test dataset files",
-                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/",
+                    "default": "https://raw.githubusercontent.com/nf-core/test-datasets/oncoanalyser",
                     "hidden": true
                 },
                 "trace_report_suffix": {
@@ -240,6 +348,61 @@
         },
         {
             "$ref": "#/$defs/generic_options"
+        },
+        {
+            "$ref": "#/$defs/other_options"
         }
-    ]
+    ],
+    "properties": {
+        "hmf_genomes_base": {
+            "type": "string",
+            "default": "https://pub-cf6ba01919994c3cbd354659947f74d8.r2.dev/genomes",
+            "description": "The base path to the HMF genome reference files",
+            "fa_icon": "fas fa-ban"
+        },
+        "gridss_config": {
+            "type": "string",
+            "description": "Path to GRIDSS configuration file.",
+            "fa_icon": "fas fa-cog"
+        },
+        "ref_data_hmf_data_path": {
+            "type": "string",
+            "description": "Path to HMF data.",
+            "fa_icon": "far fa-folder-open"
+        },
+        "ref_data_panel_data_path": {
+            "type": "string",
+            "description": "Path to panel data.",
+            "fa_icon": "far fa-folder-open"
+        },
+        "max_fastq_records": {
+            "type": "integer",
+            "default": 10000000
+        },
+        "fastp_umi": {
+            "type": "boolean"
+        },
+        "processes_manual": {
+            "type": "boolean"
+        },
+        "processes_include": {
+            "type": "string"
+        },
+        "processes_exclude": {
+            "type": "string"
+        },
+        "prepare_reference_only": {
+            "type": "boolean"
+        },
+        "create_stub_placeholders": {
+            "type": "boolean"
+        },
+        "mode": {
+            "type": "string",
+            "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
+            "enum": ["rna_workflow", "other_mode"],
+            "default": "rna_workflow",
+            "fa_icon": "fas fa-cogs"
+        }
+    }
 }

@@ -1,4 +1,12 @@
 #!/usr/bin/env nextflow
+import Constants
+import Utils
+
+nextflow.enable.dsl=2
+
+// log.info "Constants class: ${Constants.class}"
+// log.info "Utils class: ${Utils.class}"
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     nf-core/hmfrnaseq
@@ -13,9 +21,10 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { HMFRNASEQ  } from './workflows/hmfrnaseq'
+// include { HMFRNASEQ  } from './workflows/hmfrnaseq'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_hmfrnaseq_pipeline'
 include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_hmfrnaseq_pipeline'
+
 include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_hmfrnaseq_pipeline'
 
 /*
@@ -27,7 +36,30 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_hmfr
 // TODO nf-core: Remove this line if you don't need a FASTA file
 //   This is an example of how to use getGenomeAttribute() to fetch parameters
 //   from igenomes.config using `--genome`
-params.fasta = getGenomeAttribute('fasta')
+
+params.ref_data_genome_fasta         = getGenomeAttribute('fasta')
+params.ref_data_genome_fai           = getGenomeAttribute('fai')
+params.ref_data_genome_dict          = getGenomeAttribute('dict')
+params.ref_data_genome_img           = getGenomeAttribute('img')
+params.ref_data_genome_bwamem2_index = getGenomeAttribute('bwamem2_index')
+params.ref_data_genome_gridss_index  = getGenomeAttribute('gridss_index')
+params.ref_data_genome_star_index    = getGenomeAttribute('star_index')
+
+WorkflowMain.setParamsDefaults(params, log)
+WorkflowMain.validateParams(params, log)
+
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CREATE PLACEHOLDER FILES FOR STUB RUNS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// NOTE(SW): required prior to workflow import
+
+if (workflow.stubRun && params.create_stub_placeholders) {
+    Utils.createStubPlaceholders(params)
+}
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -35,25 +67,37 @@ params.fasta = getGenomeAttribute('fasta')
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
+include { RNA_WORKFLOW } from './workflows/rna_workflow'
+
+run_mode = Utils.getRunMode(params.mode, log)
+
 //
 // WORKFLOW: Run main analysis pipeline depending on type of input
 //
 workflow NFCORE_HMFRNASEQ {
 
-    take:
-    samplesheet // channel: samplesheet read in from --input
-
-    main:
-
-    //
-    // WORKFLOW: Run pipeline
-    //
-    HMFRNASEQ (
-        samplesheet
-    )
-    emit:
-    multiqc_report = HMFRNASEQ.out.multiqc_report // channel: /path/to/multiqc_report.html
+    // if (run_mode === Constants.RunMode.RNA_WORKFLOW){
+    RNA_WORKFLOW()
+    // } else {
+    //     log.error("received bad run mode: ${run_mode}")
+    //     Nextflow.exit(1)
+    // }
 }
+
+//     take:
+//     samplesheet // channel: samplesheet read in from --input
+
+//     main:
+
+//     //
+//     // WORKFLOW: Run pipeline
+//     //
+//     HMFRNASEQ (
+//         samplesheet
+//     )
+//     emit:
+//     multiqc_report = HMFRNASEQ.out.multiqc_report // channel: /path/to/multiqc_report.html
+// }
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -72,14 +116,14 @@ workflow {
         params.monochrome_logs,
         args,
         params.outdir,
-        params.input
+        // params.input
     )
 
     //
     // WORKFLOW: Run main workflow
     //
     NFCORE_HMFRNASEQ (
-        PIPELINE_INITIALISATION.out.samplesheet
+        // PIPELINE_INITIALISATION.out.samplesheet
     )
     //
     // SUBWORKFLOW: Run completion tasks
@@ -91,7 +135,7 @@ workflow {
         params.outdir,
         params.monochrome_logs,
         params.hook_url,
-        NFCORE_HMFRNASEQ.out.multiqc_report
+        // NFCORE_HMFRNASEQ.out.multiqc_report
     )
 }
 

@@ -30,6 +30,8 @@ lint:
     - .github/ISSUE_TEMPLATE/config.yml
     - .github/workflows/awstest.yml
     - .github/workflows/awsfulltest.yml
+    - lib/Utils.groovy
+    - lib/WorkflowMain.groovy
 
 template:
   org: nf-core
