@@ -1,10 +1,6 @@
 process BWA_INDEX {
     tag "$fasta"
-<<<<<<< Updated upstream
-    label 'process_single'
-=======
     label 'process_high'
->>>>>>> Stashed changes
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
