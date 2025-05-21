@@ -1,5 +1,9 @@
 process SAMTOOLS_SORT {
+<<<<<<< Updated upstream
     tag "$meta.id"
+=======
+    tag "${meta.id}"
+>>>>>>> Stashed changes
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
@@ -8,6 +12,7 @@ process SAMTOOLS_SORT {
         'biocontainers/samtools:1.21--h50ea8bc_0' }"
 
     input:
+<<<<<<< Updated upstream
     tuple val(meta) , path(bam)
     tuple val(meta2), path(fasta)
 
@@ -17,12 +22,20 @@ process SAMTOOLS_SORT {
     tuple val(meta), path("*.crai"), emit: crai, optional: true
     tuple val(meta), path("*.csi"),  emit: csi,  optional: true
     path  "versions.yml",            emit: versions
+=======
+    tuple val(meta), path(bam)
+
+    output:
+    tuple val(meta), path("*.bam"),  emit: bam
+    path "versions.yml"           ,  emit: versions
+>>>>>>> Stashed changes
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
     def args = task.ext.args ?: ''
+<<<<<<< Updated upstream
     def prefix = task.ext.prefix ?: "${meta.id}"
     def extension = args.contains("--output-fmt sam") ? "sam" :
                     args.contains("--output-fmt cram") ? "cram" :
@@ -41,6 +54,19 @@ process SAMTOOLS_SORT {
         ${reference} \\
         -o ${prefix}.${extension} \\
         -
+=======
+
+    def prefix = task.ext.prefix ?: "${meta.prefix}"
+    if ("${bam}" == "${prefix}.bam") error "Input and output names are the same, use \"task.ext.prefix\" to disambiguate!"
+
+    """
+    samtools sort \\
+        ${args} \\
+        -T ${prefix} \\
+        --threads ${task.cpus} \\
+        -o ${prefix}.bam \\
+        ${bam}
+>>>>>>> Stashed changes
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -49,6 +75,7 @@ process SAMTOOLS_SORT {
     """
 
     stub:
+<<<<<<< Updated upstream
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def extension = args.contains("--output-fmt sam") ? "sam" :
@@ -68,5 +95,13 @@ process SAMTOOLS_SORT {
     "${task.process}":
         samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
     END_VERSIONS
+=======
+    def prefix = task.ext.prefix ?: "${meta.prefix}"
+
+    """
+    touch ${prefix}.bam
+
+    echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
+>>>>>>> Stashed changes
     """
 }

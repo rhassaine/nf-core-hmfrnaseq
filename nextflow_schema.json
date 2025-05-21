@@ -390,6 +390,12 @@
         },
         "processes_exclude": {
             "type": "string"
+        },
+        "prepare_reference_only": {
+            "type": "boolean"
+        },
+        "create_stub_placeholders": {
+            "type": "boolean"
         }
     }
 }

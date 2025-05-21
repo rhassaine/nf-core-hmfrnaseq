@@ -1,6 +1,10 @@
 process BWAMEM2_INDEX {
     tag "$fasta"
+<<<<<<< Updated upstream
     label 'process_single'
+=======
+    label 'process_high'
+>>>>>>> Stashed changes
     label 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"

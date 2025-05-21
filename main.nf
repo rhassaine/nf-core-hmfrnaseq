@@ -4,8 +4,8 @@ import Utils
 
 nextflow.enable.dsl=2
 
-log.info "Constants class: ${Constants.class}"
-log.info "Utils class: ${Utils.class}"
+// log.info "Constants class: ${Constants.class}"
+// log.info "Utils class: ${Utils.class}"
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
