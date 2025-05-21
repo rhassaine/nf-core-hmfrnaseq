@@ -6,19 +6,29 @@ import Constants
 import Utils
 
 include { GATK4_MARKDUPLICATES } from '../../../modules/nf-core/gatk4/markduplicates/main'
+include { PREPARE_REFERENCE    } from '../subworkflows/local/prepare_reference'
 include { SAMBAMBA_MERGE       } from '../../../modules/local/sambamba/merge/main'
 include { SAMTOOLS_SORT        } from '../../../modules/nf-core/samtools/sort/main'
 include { STAR_ALIGN           } from '../../../modules/local/star/align/main'
 
 workflow READ_ALIGNMENT_RNA {
-    take:
-    // Sample data
-    ch_inputs         // channel: [mandatory] [ meta ]
+    // Create channel for versions
+    // channel: [ versions.yml ]
+    ch_versions = Channel.empty()
 
-    // Reference data
-    genome_star_index // channel: [mandatory] /path/to/genome_star_index/
+    // Create input channel from parsed CSV
+    // channel: [ meta ]
+    ch_inputs = Channel.fromList(inputs)
 
-    main:
+    // Set up reference data, assign more human readable variables
+    PREPARE_REFERENCE(
+        run_config,
+    )
+    ref_data = PREPARE_REFERENCE.out
+    hmf_data = PREPARE_REFERENCE.out.hmf_data
+
+    ch_versions = ch_versions.mix(PREPARE_REFERENCE.out.versions)
+
     // Channel for version.yml files
     // channel: [ versions.yml ]
     ch_versions = Channel.empty()
@@ -80,21 +90,23 @@ workflow READ_ALIGNMENT_RNA {
     //
     // MODULE: SAMtools sort
     //
-    // Create process input channel
-    // channel: [ meta_sort, bam ]
-    ch_sort_inputs = STAR_ALIGN.out.bam
+    // Create process input channel for SAMTOOLS_SORT
+    // channel: [ meta_sort, bam, fasta ]
+    ch_sort_inputs_bam = STAR_ALIGN.out.bam
         .map { meta_star, bam ->
             def meta_sort = [
                 *:meta_star,
                 prefix: meta_star.read_group,
             ]
-
             return [meta_sort, bam]
         }
 
+    ch_sort_inputs_fasta = Channel.of([[:], genome_fasta]) // Assuming genome_fasta is a single file
+
     // Run process
     SAMTOOLS_SORT(
-        ch_sort_inputs,
+        ch_sort_inputs_bam,
+        ch_sort_inputs_fasta
     )
 
     ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)

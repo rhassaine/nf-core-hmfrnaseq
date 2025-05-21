@@ -26,7 +26,7 @@ class Constants {
 
 
     static enum RunMode {
-        RNA_WORKFLOW,
+        RNA_WORKFLOW
     }
 
     static enum Process {

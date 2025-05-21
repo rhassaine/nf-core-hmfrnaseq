@@ -73,16 +73,22 @@ workflow RNA_WORKFLOW {
     //
     // SUBWORKFLOW: Run read alignment to generate BAMs
     //
+    // READ_ALIGNMENT_RNA(
+    //     ch_inputs,
+    //     ref_data.genome_star_index,
+    //     ref_data.genome_fasta,
+    //     ref_data.genome_fai,
+    //     params.max_fastq_records,
+    //     params.fastp_umi,
+    //     params.fastp_umi_location,
+    //     params.fastp_umi_length,
+    //     params.fastp_umi_skip
+    // )
+
     READ_ALIGNMENT_RNA(
         ch_inputs,
         ref_data.genome_star_index,
-        ref_data.genome_fasta,
-        ref_data.genome_fai,
-        params.max_fastq_records,
-        params.fastp_umi,
-        params.fastp_umi_location,
-        params.fastp_umi_length,
-        params.fastp_umi_skip
+        ref_data.genome_fasta // Pass genome_fasta here
     )
 
     ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
