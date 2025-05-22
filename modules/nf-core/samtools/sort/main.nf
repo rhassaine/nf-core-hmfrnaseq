@@ -1,5 +1,5 @@
 process SAMTOOLS_SORT {
-    tag "$meta.id"
+    tag "${meta.id}"
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
@@ -8,39 +8,28 @@ process SAMTOOLS_SORT {
         'biocontainers/samtools:1.21--h50ea8bc_0' }"
 
     input:
-    tuple val(meta) , path(bam)
-    tuple val(meta2), path(fasta)
+    tuple val(meta), path(bam)
 
     output:
-    tuple val(meta), path("*.bam"),  emit: bam,  optional: true
-    tuple val(meta), path("*.cram"), emit: cram, optional: true
-    tuple val(meta), path("*.crai"), emit: crai, optional: true
-    tuple val(meta), path("*.csi"),  emit: csi,  optional: true
-    path  "versions.yml",            emit: versions
+    tuple val(meta), path("*.bam"),  emit: bam
+    path "versions.yml"           ,  emit: versions
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
-    def extension = args.contains("--output-fmt sam") ? "sam" :
-                    args.contains("--output-fmt cram") ? "cram" :
-                    "bam"
-    def reference = fasta ? "--reference ${fasta}" : ""
-    if ("$bam" == "${prefix}.bam") error "Input and output names are the same, use \"task.ext.prefix\" to disambiguate!"
+
+    def prefix = task.ext.prefix ?: "${meta.prefix}"
+    if ("${bam}" == "${prefix}.bam") error "Input and output names are the same, use \"task.ext.prefix\" to disambiguate!"
 
     """
-    samtools cat \\
-        ${bam} \\
-    | \\
     samtools sort \\
-        $args \\
+        ${args} \\
         -T ${prefix} \\
-        --threads $task.cpus \\
-        ${reference} \\
-        -o ${prefix}.${extension} \\
-        -
+        --threads ${task.cpus} \\
+        -o ${prefix}.bam \\
+        ${bam}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -49,24 +38,11 @@ process SAMTOOLS_SORT {
     """
 
     stub:
-    def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
-    def extension = args.contains("--output-fmt sam") ? "sam" :
-                    args.contains("--output-fmt cram") ? "cram" :
-                    "bam"
-    """
-    touch ${prefix}.${extension}
-    if [ "${extension}" == "bam" ];
-    then
-        touch ${prefix}.${extension}.csi
-    elif [ "${extension}" == "cram" ];
-    then
-        touch ${prefix}.${extension}.crai
-    fi
+    def prefix = task.ext.prefix ?: "${meta.prefix}"
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
-    END_VERSIONS
+    """
+    touch ${prefix}.bam
+
+    echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
     """
 }

@@ -70,52 +70,69 @@ workflow RNA_WORKFLOW {
 
     ch_versions = ch_versions.mix(PREPARE_REFERENCE.out.versions)
 
-    //
-    // SUBWORKFLOW: Run read alignment to generate BAMs
-    //
-    // READ_ALIGNMENT_RNA(
-    //     ch_inputs,
-    //     ref_data.genome_star_index,
-    //     ref_data.genome_fasta,
-    //     ref_data.genome_fai,
-    //     params.max_fastq_records,
-    //     params.fastp_umi,
-    //     params.fastp_umi_location,
-    //     params.fastp_umi_length,
-    //     params.fastp_umi_skip
-    // )
+    ch_align_rna_tumor_out = Channel.empty()
+    if (run_config.stages.alignment) {
+        
+        READ_ALIGNMENT_RNA(
+            ch_inputs,
+            ref_data.genome_star_index,
+        )
+        
+        ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
 
-    READ_ALIGNMENT_RNA(
-        ch_inputs,
-        ref_data.genome_star_index,
-        ref_data.genome_fasta // Pass genome_fasta here
-    )
+        ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
+    
+    } else {
+        ch_align_rna_tumor_out = ch_inputs.map { meta -> [meta, [], []] }
+    }
 
-    ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
+    ch_align_rna_tumor_out.view()
+    println "ISOFOX stage enabled: ${run_config.stages.isofox}"
 
     //
     // MODULE: Run Isofox to analyse RNA data
     //
-    isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
-    isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
+   // channel: [ meta, isofox_dir ]
+    ch_isofox_out = Channel.empty()
+    if (run_config.stages.isofox) {
 
-    ISOFOX_QUANTIFICATION(
-        ch_inputs,
-        READ_ALIGNMENT_RNA.out.rna_tumor,
-        ref_data.genome_fasta,
-        ref_data.genome_version,
-        ref_data.genome_fai,
-        hmf_data.ensembl_data_resources,
-        hmf_data.known_fusion_data,
-        isofox_counts,
-        isofox_gc_ratios,
-        [],  // isofox_gene_ids
-        [],  // isofox_tpm_norm
-        params.isofox_functions,
-        isofox_read_length,
-    )
+        isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
+        isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
 
-    ch_versions = ch_versions.mix(ISOFOX_QUANTIFICATION.out.versions)
+        ISOFOX_QUANTIFICATION(
+            ch_inputs,
+            ch_align_rna_tumor_out,
+            ref_data.genome_fasta,
+            ref_data.genome_version,
+            ref_data.genome_fai,
+            hmf_data.ensembl_data_resources,
+            hmf_data.known_fusion_data,
+            isofox_counts,
+            isofox_gc_ratios,
+            [],  // isofox_gene_ids
+            [],  // isofox_tpm_norm
+            params.isofox_functions,
+            isofox_read_length,
+        )
+
+        ch_versions = ch_versions.mix(ISOFOX_QUANTIFICATION.out.versions)
+
+        ch_isofox_out = ch_isofox_out.mix(ISOFOX_QUANTIFICATION.out.isofox_dir)
+
+    } else {
+
+        ch_isofox_out = ch_inputs.map { meta -> [meta, []] }
+
+    }
+
+    ch_isofox_out.view()
+    ch_versions.view()
+    println "HMF Data: ${hmf_data}"
+    println "ISOFOX stage enabled: ${run_config.stages.isofox}"
+    println "ISOFOX functions: ${params.isofox_functions}"
+    println "ISOFOX read length: ${isofox_read_length}"
+    println "ISOFOX counts: ${isofox_counts}"
+    println "ISOFOX GC ratios: ${isofox_gc_ratios}"
 
     //
     // TASK: Aggregate software versions
