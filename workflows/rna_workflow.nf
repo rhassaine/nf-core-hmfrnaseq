@@ -49,6 +49,7 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 include { ISOFOX_QUANTIFICATION } from '../subworkflows/local/isofox_quantification'
 include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
+include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,6 +137,24 @@ workflow RNA_WORKFLOW {
         ch_isofox_out = ch_inputs.map { meta -> [meta, []] }
 
     }
+    
+
+    ch_rsqec_out = Channel.empty()
+    if (run_config.stages.rseqc) {
+        // Run RSeQC QC on aligned BAMs
+        RSEQC_ANALYSIS(ch_align_rna_tumor_out)
+
+        ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
+
+        ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.bamstat)
+
+    } else {
+    
+        ch_rseqc_out_bamstat_out = ch_inputs.map { meta -> [meta, [], []] }
+    
+    }
+
+    // Additional development logging 
 
     // ch_isofox_out.view()
     // ch_versions.view()
