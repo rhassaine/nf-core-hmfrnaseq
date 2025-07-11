@@ -98,8 +98,8 @@ workflow RNA_WORKFLOW {
         ch_align_rna_tumor_out = ch_inputs.map { meta -> [meta, [], []] }
     }
 
-    ch_align_rna_tumor_out.view()
-    println "ISOFOX stage enabled: ${run_config.stages.isofox}"
+    // ch_align_rna_tumor_out.view()
+    // println "ISOFOX stage enabled: ${run_config.stages.isofox}"
 
     //
     // MODULE: Run Isofox to analyse RNA data
@@ -137,14 +137,14 @@ workflow RNA_WORKFLOW {
 
     }
 
-    ch_isofox_out.view()
-    ch_versions.view()
-    println "HMF Data: ${hmf_data}"
-    println "ISOFOX stage enabled: ${run_config.stages.isofox}"
-    println "ISOFOX functions: ${params.isofox_functions}"
-    println "ISOFOX read length: ${isofox_read_length}"
-    println "ISOFOX counts: ${isofox_counts}"
-    println "ISOFOX GC ratios: ${isofox_gc_ratios}"
+    // ch_isofox_out.view()
+    // ch_versions.view()
+    // println "HMF Data: ${hmf_data}"
+    // println "ISOFOX stage enabled: ${run_config.stages.isofox}"
+    // println "ISOFOX functions: ${params.isofox_functions}"
+    // println "ISOFOX read length: ${isofox_read_length}"
+    // println "ISOFOX counts: ${isofox_counts}"
+    // println "ISOFOX GC ratios: ${isofox_gc_ratios}"
 
     //
     // TASK: Aggregate software versions
