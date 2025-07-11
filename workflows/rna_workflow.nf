@@ -140,19 +140,23 @@ workflow RNA_WORKFLOW {
     
 
     ch_rsqec_out = Channel.empty()
-    if (run_config.stages.rseqc) {
+    // if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
-        RSEQC_ANALYSIS(ch_align_rna_tumor_out)
+    RSEQC_ANALYSIS(ch_align_rna_tumor_out)
 
-        ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
+    ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
 
-        ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.bamstat)
-
-    } else {
+    // ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.txt)
+    // ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.bamstat)
     
-        ch_rseqc_out_bamstat_out = ch_inputs.map { meta -> [meta, [], []] }
+    ch_rseqc_out = RSEQC_ANALYSIS.out.bamstat
+
+
+    // } else {
     
-    }
+        // ch_rseqc_out_bamstat_out = ch_inputs.map { meta -> [meta, [], []] }
+    
+    // }
 
     // Additional development logging 
 
