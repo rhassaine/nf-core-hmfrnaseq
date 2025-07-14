@@ -1,6 +1,6 @@
-process RSEQC_BAMSTAT {
+process RSEQC_READDUPLICATION {
     tag "${meta.id}"
-    label 'process_high'
+    label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
@@ -11,8 +11,11 @@ process RSEQC_BAMSTAT {
     tuple val(meta), path(bam)
 
     output:
-    tuple val(meta), path("*.bam_stat.txt"), emit: bamstat
-    path  "versions.yml"                   , emit: versions
+    tuple val(meta), path("*seq.DupRate.xls"), emit: seq_xls
+    tuple val(meta), path("*pos.DupRate.xls"), emit: pos_xls
+    tuple val(meta), path("*.pdf")           , emit: pdf
+    tuple val(meta), path("*.r")             , emit: rscript
+    path  "versions.yml"                     , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -21,25 +24,28 @@ process RSEQC_BAMSTAT {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    bam_stat.py \\
+    read_duplication.py \\
         -i $bam \\
-        $args \\
-        > ${prefix}.bam_stat.txt
+        -o $prefix \\
+        $args
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        rseqc: \$(bam_stat.py --version | sed -e "s/bam_stat.py //g")
+        rseqc: \$(read_duplication.py --version | sed -e "s/read_duplication.py //g")
     END_VERSIONS
     """
 
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}.bam_stat.txt
+    touch ${prefix}.seq.DupRate.xls
+    touch ${prefix}.pos.DupRate.xls
+    touch ${prefix}.DupRate_plot.pdf
+    touch ${prefix}.DupRate_plot.r
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        rseqc: \$(bam_stat.py --version | sed -e "s/bam_stat.py //g")
+        rseqc: \$(read_duplication.py --version | sed -e "s/read_duplication.py //g")
     END_VERSIONS
     """
 }

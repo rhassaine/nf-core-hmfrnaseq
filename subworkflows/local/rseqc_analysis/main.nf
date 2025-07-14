@@ -1,25 +1,45 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2
 
-// Import the nf-core RSeQC bamstat module
-include { RSEQC_BAMSTAT } from '../../../modules/nf-core/rseqc/bamstat/main'
-// include { ISOFOX } from '../../../modules/local/isofox/main'
+// Import modules
+include { RSEQC_BAMSTAT }         from '../../../modules/nf-core/rseqc/bamstat/main'
+include { RSEQC_READDUPLICATION } from '../../../modules/nf-core/rseqc/readduplication/main'
 
 workflow RSEQC_ANALYSIS {
     /*
-     * Input channel: BAM files for QC
+     * Input channel: [meta, bam, bai]
      */
     take:
-        ch_bam
+        ch_tumor_rna_bam // channel: [meta, bam, bai]
 
     main:
-        // Run RSeQC bamstat module
-        RSEQC_BAMSTAT(ch_bam)
+        // Map input to [meta, bam] tuples for RSeQC modules
+        ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai -> [meta, bam] }
+
+        // Run modules
+        RSEQC_BAMSTAT(ch_bam_for_rseqc)
+        RSEQC_READDUPLICATION(ch_bam_for_rseqc)
 
         // Collect version info
-        versions_ch = Channel.empty().mix(RSEQC_BAMSTAT.out.versions)
+        ch_versions = Channel.empty()
+            .mix(RSEQC_BAMSTAT.out.versions, RSEQC_READDUPLICATION.out.versions)
+
+        // Collect QC outputs for MultiQC
+        ch_qc_reports = Channel.empty()
+            .mix(
+                RSEQC_BAMSTAT.out.bamstat,
+                RSEQC_READDUPLICATION.out.seq_xls,
+                RSEQC_READDUPLICATION.out.pos_xls,
+                RSEQC_READDUPLICATION.out.pdf,
+                RSEQC_READDUPLICATION.out.rscript
+            )
 
     emit:
-        bamstat = RSEQC_BAMSTAT.out.bamstat
-        versions = versions_ch
+        bamstat    = RSEQC_BAMSTAT.out.bamstat
+        seq_xls    = RSEQC_READDUPLICATION.out.seq_xls
+        pos_xls    = RSEQC_READDUPLICATION.out.pos_xls
+        pdf        = RSEQC_READDUPLICATION.out.pdf
+        rscript    = RSEQC_READDUPLICATION.out.rscript
+        versions   = ch_versions
+        qc_reports = ch_qc_reports
 }

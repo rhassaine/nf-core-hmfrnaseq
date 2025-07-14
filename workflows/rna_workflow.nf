@@ -149,7 +149,7 @@ workflow RNA_WORKFLOW {
     // ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.txt)
     // ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.bamstat)
     
-    ch_rseqc_out = RSEQC_ANALYSIS.out.bamstat
+    ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
 
 
     // } else {
