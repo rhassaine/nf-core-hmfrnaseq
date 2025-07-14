@@ -94,10 +94,20 @@ workflow RNA_WORKFLOW {
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
     
-    } else {
+    // } else {
 
-        ch_align_rna_tumor_out = ch_inputs.map { meta -> [meta, [], []] }
+    //     ch_align_rna_tumor_out = ch_inputs.map { meta -> [meta, [], []] }
+    // }
+    } else {
+    ch_align_rna_tumor_out = ch_inputs.map { meta ->
+        // enrich meta like alignment would do
+        def sample = Utils.getTumorRnaSample(meta)
+        meta.id = sample.sample_id ?: meta.subject_id ?: meta.group_id ?: 'unknown'
+        [meta, [], []]
+        }
     }
+
+    ch_align_rna_tumor_out.view { it[0].id }
 
     // ch_align_rna_tumor_out.view()
     // println "ISOFOX stage enabled: ${run_config.stages.isofox}"
