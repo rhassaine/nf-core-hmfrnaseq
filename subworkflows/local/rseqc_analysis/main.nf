@@ -13,8 +13,13 @@ workflow RSEQC_ANALYSIS {
         ch_tumor_rna_bam // channel: [meta, bam, bai]
 
     main:
-        // Map input to [meta, bam] tuples for RSeQC modules
-        ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai -> [meta, bam] }
+        // Ensure meta is always a valid map with id
+        ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai ->
+            def sample_id = meta?.id ?: meta?.sample_id ?: meta?.subject_id ?: meta?.group_id ?: 'unknown'
+            if (!meta) meta = [id: sample_id]
+            else meta.id = sample_id
+            [meta, bam]
+        }
 
         // Run modules
         RSEQC_BAMSTAT(ch_bam_for_rseqc)

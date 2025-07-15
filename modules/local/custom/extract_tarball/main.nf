@@ -1,5 +1,5 @@
 process CUSTOM_EXTRACTTARBALL {
-    label 'process_single'
+    label 'process_high'
 
     conda "conda-forge::tar=1.34"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
