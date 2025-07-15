@@ -14,10 +14,18 @@ workflow RSEQC_ANALYSIS {
 
     main:
         // Ensure meta is always a valid map with id
+        // ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai ->
+        //     def sample_id = meta?.id ?: meta?.sample_id ?: meta?.subject_id ?: meta?.group_id ?: 'unknown'
+        //     if (!meta) meta = [id: sample_id]
+        //     else meta.id = sample_id
+        //     [meta, bam]
+        // }
+
         ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai ->
             def sample_id = meta?.id ?: meta?.sample_id ?: meta?.subject_id ?: meta?.group_id ?: 'unknown'
-            if (!meta) meta = [id: sample_id]
-            else meta.id = sample_id
+            def key_val = meta?.key ?: sample_id
+            meta.key = key_val
+            meta.id = sample_id
             [meta, bam]
         }
 
@@ -38,6 +46,7 @@ workflow RSEQC_ANALYSIS {
                 RSEQC_READDUPLICATION.out.pdf,
                 RSEQC_READDUPLICATION.out.rscript
             )
+        // Downstream, always treat ch_qc_reports as tuple (meta, file)
 
     emit:
         bamstat    = RSEQC_BAMSTAT.out.bamstat
