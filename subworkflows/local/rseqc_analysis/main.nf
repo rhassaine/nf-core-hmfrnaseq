@@ -13,20 +13,28 @@ workflow RSEQC_ANALYSIS {
         ch_tumor_rna_bam // channel: [meta, bam, bai]
 
     main:
-        // Ensure meta is always a valid map with id
+
         // ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai ->
         //     def sample_id = meta?.id ?: meta?.sample_id ?: meta?.subject_id ?: meta?.group_id ?: 'unknown'
-        //     if (!meta) meta = [id: sample_id]
-        //     else meta.id = sample_id
+        //     def key_val = meta?.key ?: sample_id
+        //     meta.key = key_val
+        //     meta.id = sample_id
         //     [meta, bam]
         // }
 
         ch_bam_for_rseqc = ch_tumor_rna_bam.map { meta, bam, bai ->
-            def sample_id = meta?.id ?: meta?.sample_id ?: meta?.subject_id ?: meta?.group_id ?: 'unknown'
-            def key_val = meta?.key ?: sample_id
-            meta.key = key_val
-            meta.id = sample_id
-            [meta, bam]
+            def sample_id = meta?.sample_id ?: meta?.id ?: meta?.subject_id ?: meta?.group_id ?: 'unknown'
+            def group_id = meta?.group_id ?: sample_id
+            def enriched_meta = [
+                key: group_id,
+                id: sample_id,
+                sample_id: sample_id,
+                group_id: group_id,
+                lane: meta?.lane,
+                library_id: meta?.library_id,
+        // add any other fields you want to propagate
+            ]
+            [enriched_meta, bam]
         }
 
         // Run modules
