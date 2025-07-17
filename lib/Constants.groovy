@@ -47,6 +47,7 @@ class Constants {
         PAVE,
         PURPLE,
         REDUX,
+        RSEQC,
         SAGE,
         SIGS,
         VIRUSINTERPRETER,
@@ -73,6 +74,7 @@ class Constants {
         LINX_ANNO_DIR,
         PAVE_VCF,
         PURPLE_DIR,
+        RSEQC_DIR,
         SAGE_VCF,
         SAGE_VCF_TBI,
         SAGE_APPEND_VCF,
@@ -158,6 +160,12 @@ class Constants {
             SequenceType.RNA,
         ],
 
+        // RSEQC
+        RSEQC_DIR: [
+            FileType.RSEQC_DIR,
+            SampleType.TUMOR,
+            SequenceType.RNA,
+        ],
 
         // REDUX
         BAM_REDUX_DNA_TUMOR: [

@@ -76,12 +76,12 @@ run_mode = Utils.getRunMode(params.mode, log)
 //
 workflow NFCORE_HMFRNASEQ {
 
-    // if (run_mode === Constants.RunMode.RNA_WORKFLOW){
-    RNA_WORKFLOW()
-    // } else {
-    //     log.error("received bad run mode: ${run_mode}")
-    //     Nextflow.exit(1)
-    // }
+    if (run_mode === Constants.RunMode.RNA_WORKFLOW){
+        RNA_WORKFLOW()
+    } else {
+        log.error("received bad run mode: ${run_mode}")
+        Nextflow.exit(1)
+    }
 }
 
 //     take:
