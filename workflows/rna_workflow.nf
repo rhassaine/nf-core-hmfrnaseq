@@ -69,6 +69,8 @@ workflow RNA_WORKFLOW {
     // channel: [ meta ]
     ch_inputs = Channel.fromList(inputs)
 
+    // ch_inputs.view()
+
     // Set up reference data, assign more human readable variables
     PREPARE_REFERENCE(
         run_config,
@@ -99,6 +101,7 @@ workflow RNA_WORKFLOW {
     //     ch_align_rna_tumor_out = ch_inputs.map { meta -> [meta, [], []] }
     // }
     } else {
+        
     ch_align_rna_tumor_out = ch_inputs.map { meta ->
         // enrich meta like alignment would do
         def sample = Utils.getTumorRnaSample(meta)
@@ -152,7 +155,7 @@ workflow RNA_WORKFLOW {
     ch_rsqec_out = Channel.empty()
     if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
-        RSEQC_ANALYSIS(ch_align_rna_tumor_out)
+        RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out)
 
         ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
 
