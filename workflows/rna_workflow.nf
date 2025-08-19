@@ -51,6 +51,9 @@ include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
 include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
 
+include { MULTIQC               } from '../modules/nf-core/multiqc/main'
+include { FASTQC                } from '../modules/nf-core/fastqc/main'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -83,6 +86,35 @@ workflow RNA_WORKFLOW {
     // Set GRIDSS config
     gridss_config = params.gridss_config !== null ? file(params.gridss_config) : hmf_data.gridss_config
 
+    //
+    // TASK: FastQC on raw reads
+    //
+    ch_fastqc_out = Channel.empty()
+    if (run_config.stages.alignment) {
+        // Create FASTQ input channel for FastQC
+        ch_fastq_for_qc = ch_inputs
+            .flatMap { meta ->
+                def meta_sample = Utils.getTumorRnaSample(meta)
+                meta_sample
+                    .getAt(Constants.FileType.FASTQ)
+                    .collect { key, fps ->
+                        def (library_id, lane) = key
+                        def meta_fastqc = [
+                            key: meta.group_id,
+                            id: "${meta.group_id}_${meta_sample.sample_id}_${library_id}_${lane}",
+                            sample_id: meta_sample.sample_id,
+                            library_id: library_id,
+                            lane: lane,
+                        ]
+                        return [meta_fastqc, [fps['fwd'], fps['rev']]]
+                    }
+            }
+
+        FASTQC(ch_fastq_for_qc)
+        ch_versions = ch_versions.mix(FASTQC.out.versions)
+        ch_fastqc_out = FASTQC.out.zip
+    }
+
     ch_align_rna_tumor_out = Channel.empty()
 
     if (run_config.stages.alignment) {
@@ -96,10 +128,6 @@ workflow RNA_WORKFLOW {
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
     
-    // } else {
-
-    //     ch_align_rna_tumor_out = ch_inputs.map { meta -> [meta, [], []] }
-    // }
     } else {
         
     ch_align_rna_tumor_out = ch_inputs.map { meta ->
@@ -111,9 +139,6 @@ workflow RNA_WORKFLOW {
     }
 
     ch_align_rna_tumor_out.view { it[0].id }
-
-    // ch_align_rna_tumor_out.view()
-    // println "ISOFOX stage enabled: ${run_config.stages.isofox}"
 
     //
     // MODULE: Run Isofox to analyse RNA data
@@ -152,35 +177,39 @@ workflow RNA_WORKFLOW {
     }
     
 
-    ch_rsqec_out = Channel.empty()
+    ch_rseqc_out = Channel.empty()
     if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
         RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out)
 
         ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
-
-    // ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.txt)
-    // ch_rseqc_out = ch_rseqc_out.mix(RSEQC_ANALYSIS.out.bamstat)
-    
+        
         ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
-
 
     } else {
     
-        ch_rseqc_out_bamstat_out = ch_inputs.map { meta -> [meta, [], []] }
+        ch_rseqc_out = ch_inputs.map { meta -> [meta, []] }
     
     }
 
-    // Additional development logging 
+    //
+    // TASK: MultiQC
+    //
+    ch_multiqc_files = Channel.empty()
+        .mix(ch_fastqc_out.map { meta, files -> files }.flatten().filter { it })
+        .mix(ch_rseqc_out.map { meta, files -> files }.flatten().filter { it })
+        .collect()
 
-    // ch_isofox_out.view()
-    // ch_versions.view()
-    // println "HMF Data: ${hmf_data}"
-    // println "ISOFOX stage enabled: ${run_config.stages.isofox}"
-    // println "ISOFOX functions: ${params.isofox_functions}"
-    // println "ISOFOX read length: ${isofox_read_length}"
-    // println "ISOFOX counts: ${isofox_counts}"
-    // println "ISOFOX GC ratios: ${isofox_gc_ratios}"
+    MULTIQC(
+        ch_multiqc_files,
+        [],
+        [],
+        [],
+        [],
+        []
+    )
+
+    ch_versions = ch_versions.mix(MULTIQC.out.versions)
 
     //
     // TASK: Aggregate software versions
