@@ -147,10 +147,13 @@ workflow READ_ALIGNMENT_RNA {
     // channel: [ meta_merge, [bams, ...] ]
     ch_merge_inputs = WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.runnable, ch_inputs)
         .map { meta, bams ->
+            def meta_sample = Utils.getTumorRnaSample(meta)
             def meta_merge = [
                 key: meta.group_id,
-                id: meta.group_id,
+                id: "${meta.group_id}_${meta_sample.sample_id}",
                 sample_id: Utils.getTumorRnaSampleName(meta),
+                subject_id: meta.subject_id,
+                group_id: meta.group_id,
             ]
             return [meta_merge, bams]
         }
@@ -173,10 +176,13 @@ workflow READ_ALIGNMENT_RNA {
             WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs),
         )
         .map { meta, bam ->
+            def meta_sample = Utils.getTumorRnaSample(meta)
             def meta_markdups = [
                 key: meta.group_id,
-                id: meta.group_id,
+                id: "${meta.group_id}_${meta_sample.sample_id}",
                 sample_id: Utils.getTumorRnaSampleName(meta),
+                subject_id: meta.subject_id,
+                group_id: meta.group_id,
             ]
             return [meta_markdups, bam]
         }
