@@ -4,15 +4,15 @@ process SAMTOOLS_DICT {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/samtools:1.21--h50ea8bc_0' :
-        'biocontainers/samtools:1.21--h50ea8bc_0' }"
+        'https://depot.galaxyproject.org/singularity/samtools:1.22.1--h96c455f_0' :
+        'biocontainers/samtools:1.22.1--h96c455f_0' }"
 
     input:
-    path fasta
+    tuple val(meta), path(fasta)
 
     output:
-    path "*.dict"      , emit: dict
-    path "versions.yml", emit: versions
+    tuple val(meta), path ("*.dict"), emit: dict
+    path "versions.yml"             , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -35,7 +35,10 @@ process SAMTOOLS_DICT {
     stub:
     """
     touch ${fasta}.dict
+    cat <<-END_VERSIONS > versions.yml
 
-    echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
+    "${task.process}":
+        samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+    END_VERSIONS
     """
 }

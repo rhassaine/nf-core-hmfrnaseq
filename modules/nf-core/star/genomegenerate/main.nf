@@ -4,16 +4,16 @@ process STAR_GENOMEGENERATE {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/star:2.7.3a--0' :
-        'quay.io/biocontainers/star:2.7.3a--0' }"
+        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/26/268b4c9c6cbf8fa6606c9b7fd4fafce18bf2c931d1a809a0ce51b105ec06c89d/data' :
+        'community.wave.seqera.io/library/htslib_samtools_star_gawk:ae438e9a604351a4' }"
 
     input:
-    path fasta
-    path gtf
+    tuple val(meta), path(fasta)
+    tuple val(meta2), path(gtf)
 
     output:
-    path "star_index"  , emit: index
-    path "versions.yml", emit: versions
+    tuple val(meta), path("star")  , emit: index
+    path "versions.yml"            , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -23,62 +23,97 @@ process STAR_GENOMEGENERATE {
     def args_list   = args.tokenize()
     def memory      = task.memory ? "--limitGenomeGenerateRAM ${task.memory.toBytes() - 100000000}" : ''
     def include_gtf = gtf ? "--sjdbGTFfile $gtf" : ''
-
-    """
-    mkdir -p star_index/
-
-    STAR \\
-        --runMode genomeGenerate \\
-        --genomeDir star_index/ \\
-        --genomeFastaFiles $fasta \\
-        $include_gtf \\
-        --runThreadN $task.cpus \\
-        $memory \\
-        $args
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        star: \$(STAR --version | sed -e "s/STAR_//g")
-    END_VERSIONS
+    if (args_list.contains('--genomeSAindexNbases')) {
         """
+        mkdir star
+        STAR \\
+            --runMode genomeGenerate \\
+            --genomeDir star/ \\
+            --genomeFastaFiles $fasta \\
+            $include_gtf \\
+            --runThreadN $task.cpus \\
+            $memory \\
+            $args
+
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            star: \$(STAR --version | sed -e "s/STAR_//g")
+            samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+            gawk: \$(echo \$(gawk --version 2>&1) | sed 's/^.*GNU Awk //; s/, .*\$//')
+        END_VERSIONS
+        """
+    } else {
+        """
+        samtools faidx $fasta
+        NUM_BASES=`gawk '{sum = sum + \$2}END{if ((log(sum)/log(2))/2 - 1 > 14) {printf "%.0f", 14} else {printf "%.0f", (log(sum)/log(2))/2 - 1}}' ${fasta}.fai`
+
+        mkdir star
+        STAR \\
+            --runMode genomeGenerate \\
+            --genomeDir star/ \\
+            --genomeFastaFiles $fasta \\
+            $include_gtf \\
+            --runThreadN $task.cpus \\
+            --genomeSAindexNbases \$NUM_BASES \\
+            $memory \\
+            $args
+
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            star: \$(STAR --version | sed -e "s/STAR_//g")
+            samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+            gawk: \$(echo \$(gawk --version 2>&1) | sed 's/^.*GNU Awk //; s/, .*\$//')
+        END_VERSIONS
+        """
+    }
 
     stub:
     if (gtf) {
         """
-        mkdir -p star_index/
-        touch star_index/Genome
-        touch star_index/Log.out
-        touch star_index/SA
-        touch star_index/SAindex
-        touch star_index/chrLength.txt
-        touch star_index/chrName.txt
-        touch star_index/chrNameLength.txt
-        touch star_index/chrStart.txt
-        touch star_index/exonGeTrInfo.tab
-        touch star_index/exonInfo.tab
-        touch star_index/geneInfo.tab
-        touch star_index/genomeParameters.txt
-        touch star_index/sjdbInfo.txt
-        touch star_index/sjdbList.fromGTF.out.tab
-        touch star_index/sjdbList.out.tab
-        touch star_index/transcriptInfo.tab
+        mkdir star
+        touch star/Genome
+        touch star/Log.out
+        touch star/SA
+        touch star/SAindex
+        touch star/chrLength.txt
+        touch star/chrName.txt
+        touch star/chrNameLength.txt
+        touch star/chrStart.txt
+        touch star/exonGeTrInfo.tab
+        touch star/exonInfo.tab
+        touch star/geneInfo.tab
+        touch star/genomeParameters.txt
+        touch star/sjdbInfo.txt
+        touch star/sjdbList.fromGTF.out.tab
+        touch star/sjdbList.out.tab
+        touch star/transcriptInfo.tab
 
-        echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            star: \$(STAR --version | sed -e "s/STAR_//g")
+            samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+            gawk: \$(echo \$(gawk --version 2>&1) | sed 's/^.*GNU Awk //; s/, .*\$//')
+        END_VERSIONS
         """
     } else {
         """
-        mkdir -p star_index/
-        touch star_index/Genome
-        touch star_index/Log.out
-        touch star_index/SA
-        touch star_index/SAindex
-        touch star_index/chrLength.txt
-        touch star_index/chrName.txt
-        touch star_index/chrNameLength.txt
-        touch star_index/chrStart.txt
-        touch star_index/genomeParameters.txt
+        mkdir star
+        touch star/Genome
+        touch star/Log.out
+        touch star/SA
+        touch star/SAindex
+        touch star/chrLength.txt
+        touch star/chrName.txt
+        touch star/chrNameLength.txt
+        touch star/chrStart.txt
+        touch star/genomeParameters.txt
 
-        echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            star: \$(STAR --version | sed -e "s/STAR_//g")
+            samtools: \$(echo \$(samtools --version 2>&1) | sed 's/^.*samtools //; s/Using.*\$//')
+            gawk: \$(echo \$(gawk --version 2>&1) | sed 's/^.*GNU Awk //; s/, .*\$//')
+        END_VERSIONS
         """
     }
 }

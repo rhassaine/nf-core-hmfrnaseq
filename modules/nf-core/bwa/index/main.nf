@@ -1,40 +1,34 @@
 process BWA_INDEX {
     tag "$fasta"
-    label 'process_single'
+    // NOTE requires 5.37N memory where N is the size of the database
+    // source: https://bio-bwa.sourceforge.net/bwa.shtml#8
+    memory { 6.B * fasta.size() }
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/bwa:0.7.19--h577a1d6_0' :
-        'biocontainers/bwa:0.7.19--h577a1d6_0' }"
+        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/d7/d7e24dc1e4d93ca4d3a76a78d4c834a7be3985b0e1e56fddd61662e047863a8a/data' :
+        'community.wave.seqera.io/library/bwa_htslib_samtools:83b50ff84ead50d0' }"
 
     input:
-    path fasta
-    path alt
+    tuple val(meta), path(fasta)
 
     output:
-    path bwa_index     , emit: index
-    path "versions.yml", emit: versions
+    tuple val(meta), path("bwa")  , emit: index
+    path "versions.yml"             , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
+    def prefix = task.ext.prefix ?: "${fasta.baseName}"
     def args   = task.ext.args ?: ''
-
-    def prefix = task.ext.prefix ?: "${fasta.name}"
-
     """
-    mkdir -p bwa_index/
+    mkdir bwa
     bwa \\
         index \\
         $args \\
-        -p bwa_index/${prefix} \\
+        -p bwa/${prefix} \\
         $fasta
-
-    # Include ALT file where necessary
-    if [[ -n "${alt}" ]]; then
-        ln -s ../${alt} bwa_index/;
-    fi;
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -43,17 +37,19 @@ process BWA_INDEX {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${fasta.name}"
-
+    def prefix = task.ext.prefix ?: "${fasta.baseName}"
     """
-    mkdir -p bwa_index/
+    mkdir bwa
 
-    touch bwa_index/${prefix}.amb
-    touch bwa_index/${prefix}.ann
-    touch bwa_index/${prefix}.bwt
-    touch bwa_index/${prefix}.pac
-    touch bwa_index/${prefix}.sa
+    touch bwa/${prefix}.amb
+    touch bwa/${prefix}.ann
+    touch bwa/${prefix}.bwt
+    touch bwa/${prefix}.pac
+    touch bwa/${prefix}.sa
 
-    echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        bwa: \$(echo \$(bwa 2>&1) | sed 's/^.*Version: //; s/Contact:.*\$//')
+    END_VERSIONS
     """
 }
