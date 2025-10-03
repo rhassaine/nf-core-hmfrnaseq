@@ -13,6 +13,16 @@ lint:
     - .github/PULL_REQUEST_TEMPLATE.md
     - assets/email_template.txt
     - docs/README.md
+  files_ignore:
+    - .github/workflows/linting_comment.yml
+    - .github/workflows/linting.yml
+    - .prettierrc.yml
+    - .github/workflows/nf-test.yml
+    - .github/actions/get-shards/action.yml
+    - .github/actions/nf-test/action.yml
+    - nf-test.config
+    - tests/default.nf.test
+    - tests/nextflow.config
   nextflow_config:
     - manifest.name
     - manifest.homePage
