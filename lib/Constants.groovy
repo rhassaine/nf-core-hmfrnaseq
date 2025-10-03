@@ -29,6 +29,7 @@ class Constants {
         TARGETED,
         WGTS,
         RNA_WORKFLOW,
+        FASTQC_WORKFLOW,
     }
 
     static enum Process {

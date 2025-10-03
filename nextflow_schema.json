@@ -400,7 +400,7 @@
         "mode": {
             "type": "string",
             "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
-            "enum": ["rna_workflow", "other_mode"],
+            "enum": ["rna_workflow", "fastqc_workflow", "other_mode"],
             "default": "rna_workflow",
             "fa_icon": "fas fa-cogs"
         }
