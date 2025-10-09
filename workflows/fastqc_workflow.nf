@@ -51,7 +51,6 @@ workflow FASTQC_WORKFLOW {
 
         // Collect FastQC outputs for MultiQC
         ch_multiqc_files = Channel.empty()
-            .mix(FASTQC.out.html.map { meta, file -> file })
             .mix(FASTQC.out.zip.map { meta, file -> file })
             .collect()
 
