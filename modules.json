@@ -27,7 +27,7 @@
                     },
                     "multiqc": {
                         "branch": "master",
-                        "git_sha": "f0719ae309075ae4a291533883847c3f7c441dad",
+                        "git_sha": "9656d955b700a8707c4a67821ab056f8c1095675",
                         "installed_by": ["modules"]
                     },
                     "rseqc/bamstat": {
