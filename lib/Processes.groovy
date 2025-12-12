@@ -8,14 +8,12 @@ class Processes {
 
     public static getRunStages(include, exclude, manual_select, log) {
 
-        // Get default processes
-        // NOTE(SW): currently set all except Neo to run by default; Process.NEO excluded to be more concise in code
+        // Get default processes - all RNA processes run by default
         def processes
         if (manual_select) {
             processes = []
         } else {
             processes = Constants.Process.values().toList()
-            processes.remove(Constants.Process.NEO)
         }
 
         def include_list = this.getProcessList(include, log)

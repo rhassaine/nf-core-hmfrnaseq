@@ -23,20 +23,13 @@ def checkPathParamList = [
     params.isofox_gc_ratios,
 ]
 
-if (run_config.stages.lilac) {
-    if (params.genome_version.toString() == '38' && params.genome_type == 'alt' && params.containsKey('ref_data_hla_slice_bed')) {
-        checkPathParamList.add(params.ref_data_hla_slice_bed)
-    }
-}
-
-// TODO(SW): consider whether we should check for null entries here for errors to be more informative
 for (param in checkPathParamList) { if (param) { file(param, checkIfExists: true) } }
 
 // Check mandatory parameters
 if (params.input) { ch_input = file(params.input) } else { exit 1, 'Input samplesheet not specified!' }
 
-// Used in Isofox and Neo subworkflows
-isofox_read_length = params.isofox_read_length !== null ? params.isofox_read_length : Constants.DEFAULT_ISOFOX_READ_LENGTH_WTS
+// Used in Isofox subworkflow
+isofox_read_length = params.isofox_read_length !== null ? params.isofox_read_length : Constants.DEFAULT_ISOFOX_READ_LENGTH
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,6 +67,10 @@ workflow RNA_WORKFLOW {
 
     // ch_inputs.view()
 
+    // Create channel for BED file input
+    // channel: [ meta2, bed ]
+    ch_bed = channel.of([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
+
     // Set up reference data, assign more human readable variables
     PREPARE_REFERENCE(
         run_config,
@@ -82,9 +79,6 @@ workflow RNA_WORKFLOW {
     hmf_data = PREPARE_REFERENCE.out.hmf_data
 
     ch_versions = ch_versions.mix(PREPARE_REFERENCE.out.versions)
-
-    // Set GRIDSS config
-    gridss_config = params.gridss_config !== null ? file(params.gridss_config) : hmf_data.gridss_config
 
     //
     // TASK: FastQC on raw reads
@@ -180,7 +174,7 @@ workflow RNA_WORKFLOW {
     ch_rseqc_out = channel.empty()
     if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
-        RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out)
+        RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out, ch_bed)
 
         ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
 
