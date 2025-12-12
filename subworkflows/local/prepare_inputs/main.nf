@@ -15,7 +15,7 @@ workflow PREPARE_INPUTS {
     input_fp_str
 
     main:
-    ch_inputs = Channel.fromList(
+    ch_inputs = channel.fromList(
         Utils.parseInput(input_fp_str, workflow.stubRun, log)
     )
 

@@ -66,11 +66,11 @@ samplesheet = Utils.getFileObject(params.input)
 workflow RNA_WORKFLOW {
     // Create channel for versions
     // channel: [ versions.yml ]
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     // Create input channel from parsed CSV
     // channel: [ meta ]
-    ch_inputs = Channel.fromList(inputs)
+    ch_inputs = channel.fromList(inputs)
 
     // ch_inputs.view()
 
@@ -89,7 +89,7 @@ workflow RNA_WORKFLOW {
     //
     // TASK: FastQC on raw reads
     //
-    ch_fastqc_out = Channel.empty()
+    ch_fastqc_out = channel.empty()
     if (run_config.stages.alignment) {
         // Create FASTQ input channel for FastQC
         ch_fastq_for_qc = ch_inputs
@@ -115,21 +115,21 @@ workflow RNA_WORKFLOW {
         ch_fastqc_out = FASTQC.out.zip
     }
 
-    ch_align_rna_tumor_out = Channel.empty()
+    ch_align_rna_tumor_out = channel.empty()
 
     if (run_config.stages.alignment) {
-        
+
         READ_ALIGNMENT_RNA(
             ch_inputs,
             ref_data.genome_star_index,
         )
-        
+
         ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
-    
+
     } else {
-        
+
     ch_align_rna_tumor_out = ch_inputs.map { meta ->
         // enrich meta like alignment would do
         def sample = Utils.getTumorRnaSample(meta)
@@ -144,7 +144,7 @@ workflow RNA_WORKFLOW {
     // MODULE: Run Isofox to analyse RNA data
     //
    // channel: [ meta, isofox_dir ]
-    ch_isofox_out = Channel.empty()
+    ch_isofox_out = channel.empty()
     if (run_config.stages.isofox) {
 
         isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
@@ -175,27 +175,27 @@ workflow RNA_WORKFLOW {
         ch_isofox_out = ch_inputs.map { meta -> [meta, []] }
 
     }
-    
 
-    ch_rseqc_out = Channel.empty()
+
+    ch_rseqc_out = channel.empty()
     if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
         RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out)
 
         ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
-        
+
         ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
 
     } else {
-    
+
         ch_rseqc_out = ch_inputs.map { meta -> [meta, []] }
-    
+
     }
 
     //
     // TASK: MultiQC
     //
-    ch_multiqc_files = Channel.empty()
+    ch_multiqc_files = channel.empty()
         .mix(ch_fastqc_out.map { meta, files -> files }.flatten().filter { it })
         .mix(ch_rseqc_out.map { meta, files -> files }.flatten().filter { it })
         .collect()

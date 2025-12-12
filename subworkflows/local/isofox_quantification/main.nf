@@ -29,9 +29,9 @@ workflow ISOFOX_QUANTIFICATION {
     isofox_read_length     //  string: [mandatory] Isofox read length
 
     main:
-    // Channel for version.yml files
+    // channel for version.yml files
     // channel: [ versions.yml ]
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     // Select input sources and sort
     // channel: runnable: [ meta, tumor_bam, tumor_bai ]
@@ -87,7 +87,7 @@ workflow ISOFOX_QUANTIFICATION {
 
     // Set outputs, restoring original meta
     // channel: [ meta, isofox_dir ]
-    ch_outputs = Channel.empty()
+    ch_outputs = channel.empty()
         .mix(
             WorkflowOncoanalyser.restoreMeta(ISOFOX.out.isofox_dir, ch_inputs),
             ch_inputs_sorted.skip.map { meta -> [meta, []] },

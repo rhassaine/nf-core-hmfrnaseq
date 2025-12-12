@@ -17,7 +17,7 @@ workflow FASTQC_WORKFLOW {
         inputs = Utils.parseInput(params.input, workflow.stubRun, log)
 
         // Create a channel from parsed input
-        ch_inputs = Channel.fromList(inputs)
+        ch_inputs = channel.fromList(inputs)
 
         // Extract FASTQ file tuples for FastQC
         ch_fastq_for_qc = ch_inputs

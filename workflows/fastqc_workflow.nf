@@ -25,7 +25,7 @@ workflow FASTQC_WORKFLOW {
     main:
         // Parse the samplesheet using pipeline logic
         inputs = Utils.parseInput(params.input, workflow.stubRun, log)
-        ch_inputs = Channel.fromList(inputs)
+        ch_inputs = channel.fromList(inputs)
 
         // Extract FASTQ file tuples for FastQC
         ch_fastq_for_qc = ch_inputs
@@ -50,7 +50,7 @@ workflow FASTQC_WORKFLOW {
         FASTQC(ch_fastq_for_qc)
 
         // Collect FastQC outputs for MultiQC
-        ch_multiqc_files = Channel.empty()
+        ch_multiqc_files = channel.empty()
             .mix(FASTQC.out.zip.map { meta, file -> file })
             .collect()
 
@@ -65,7 +65,7 @@ workflow FASTQC_WORKFLOW {
         )
 
         // Collect version info
-        ch_versions = Channel.empty()
+        ch_versions = channel.empty()
             .mix(FASTQC.out.versions)
             .mix(MULTIQC.out.versions)
 
