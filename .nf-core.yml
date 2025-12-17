@@ -13,6 +13,8 @@ lint:
     - .github/PULL_REQUEST_TEMPLATE.md
     - assets/email_template.txt
     - docs/README.md
+  modules_config:
+    - rseqc/splitbam
   nextflow_config:
     - manifest.name
     - manifest.homePage
@@ -20,6 +22,8 @@ lint:
     - validation.help.afterText
     - validation.summary.beforeText
     - validation.summary.afterText
+    - params.rrna_threshold_count
+    - params.rrna_threshold_percent
   multiqc_config:
     - report_comment
   files_exist:

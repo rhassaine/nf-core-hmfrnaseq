@@ -13,11 +13,11 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = channel.of([
+                input[0] = Channel.of([
                     [ id:'test_fasta' ],
                     [ file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.fasta', checkIfExists: true) ]
                 ])
-                input[1] = channel.of([
+                input[1] = Channel.of([
                     [ id:'test_gtf' ],
                     [ file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.gtf', checkIfExists: true) ]
                 ])
@@ -41,11 +41,11 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = channel.of([
+                input[0] = Channel.of([
                     [ id:'test_fasta' ],
                     [ file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.fasta', checkIfExists: true) ]
                 ])
-                input[1] = channel.of([ [], [] ])
+                input[1] = Channel.of([ [], [] ])
                 """
             }
         }
@@ -68,11 +68,11 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = channel.of([
+                input[0] = Channel.of([
                     [ id:'test_fasta' ],
                     [ file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.fasta', checkIfExists: true) ]
                 ])
-                input[1] = channel.of([
+                input[1] = Channel.of([
                     [ id:'test_gtf' ],
                     [ file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.gtf', checkIfExists: true) ]
                 ])
@@ -95,11 +95,11 @@ nextflow_process {
         when {
             process {
                 """
-                input[0] = channel.of([
+                input[0] = Channel.of([
                     [ id:'test_fasta' ],
                     [ file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.fasta', checkIfExists: true) ]
                 ])
-                input[1] = channel.of([ [], [] ])
+                input[1] = Channel.of([ [], [] ])
                 """
             }
         }

@@ -15,7 +15,6 @@ process RSEQC_SPLITBAM {
     tuple val(meta), path("*.in.bam")  , emit: in_bam
     tuple val(meta), path("*.ex.bam")  , emit: ex_bam
     tuple val(meta), path("*.junk.bam"), emit: junk_bam
-    tuple val(meta), path("*.splitbam_stats.txt"), emit: stats
     tuple val("${task.process}"), val('rseqc'), eval('split_bam.py --version | sed "s/split_bam.py //"'), emit: versions_rseqc, topic: versions
 
 
@@ -30,8 +29,7 @@ process RSEQC_SPLITBAM {
         -i $bam \\
         -r $bed \\
         -o $prefix \\
-        $args \\
-        2>&1 | tee ${prefix}.splitbam_stats.txt
+        $args
     """
 
     stub:
@@ -40,7 +38,5 @@ process RSEQC_SPLITBAM {
     touch ${prefix}.in.bam
     touch ${prefix}.ex.bam
     touch ${prefix}.junk.bam
-    echo "Total records: 1000000" > ${prefix}.splitbam_stats.txt
-    echo "${prefix}.in.bam (Reads consumed by input gene list): 5000" >> ${prefix}.splitbam_stats.txt
     """
 }
