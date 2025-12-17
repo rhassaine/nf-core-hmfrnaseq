@@ -95,9 +95,11 @@ workflow READ_ALIGNMENT_RNA {
     // Run process
     SAMTOOLS_SORT(
         ch_sort_inputs,
+        [[],[]],
+        'bai'
     )
 
-    ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)
+    // Note: SAMTOOLS_SORT versions are collected via topics
 
     //
     // MODULE: Sambamba merge

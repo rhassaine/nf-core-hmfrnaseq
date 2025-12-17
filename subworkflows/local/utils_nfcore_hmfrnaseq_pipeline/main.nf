@@ -52,7 +52,13 @@ workflow PIPELINE_INITIALISATION {
     UTILS_NFSCHEMA_PLUGIN (
         workflow,
         validate_params,
-        null
+        null,
+        params.help,
+        params.help_full,
+        params.show_hidden,
+        '',
+        '',
+        "nextflow run nf-core/hmfrnaseq -profile <docker/singularity/.../institute> --input samplesheet.csv --outdir <OUTDIR>"
     )
 
     //

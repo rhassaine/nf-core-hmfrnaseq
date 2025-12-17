@@ -124,6 +124,8 @@ def createDataMap(entries, ref_data_path) {
 }
 
 def getRefdataFile(filepath, ref_data_path) {
-    def data_path_noslash = ref_data_path.toString().replaceAll('/$', '')
-    return file("${data_path_noslash}/${filepath}", checkIfExists: true)
+    // If filepath is already absolute (starts with /), use it as-is
+    // Otherwise, concatenate with base path
+    def full_path = filepath.startsWith('/') ? filepath : "${ref_data_path.toString().replaceAll('/$', '')}/${filepath}"
+    return file(full_path, checkIfExists: true)
 }
