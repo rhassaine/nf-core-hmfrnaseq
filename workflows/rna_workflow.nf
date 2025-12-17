@@ -174,9 +174,8 @@ workflow RNA_WORKFLOW {
     ch_rseqc_out = channel.empty()
     if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
+        // Note: RSeQC versions are collected via topics
         RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out, ch_bed)
-
-        ch_versions = ch_versions.mix(RSEQC_ANALYSIS.out.versions)
 
         ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
 

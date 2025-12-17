@@ -16,8 +16,6 @@ workflow RSEQC_ANALYSIS {
         ch_bed            // [meta2, bed] (add this to your workflow inputs)
 
     main:
-        ch_versions = channel.empty()
-
         // Sort inputs
         ch_inputs_sorted = ch_tumor_rna_bam
             .map { meta, tumor_bam, tumor_bai ->
@@ -61,18 +59,16 @@ workflow RSEQC_ANALYSIS {
             }
 
         // Run RSeQC modules
+        // Note: versions are collected via topics, no manual collection needed
         RSEQC_BAMSTAT(ch_rseqc_inputs)
-        ch_versions = ch_versions.mix(RSEQC_BAMSTAT.out.versions)
 
         RSEQC_READDUPLICATION(ch_rseqc_inputs)
-        ch_versions = ch_versions.mix(RSEQC_READDUPLICATION.out.versions)
 
         // Run splitbam (requires both BAM/BAI and BED)
         RSEQC_SPLITBAM(ch_splitbam_inputs, ch_bed)
-        ch_versions = ch_versions.mix(RSEQC_SPLITBAM.out.versions_rseqc)
 
         // Restore meta for outputs
-        ch_bamstat_out     = WorkflowOncoanalyser.restoreMeta(RSEQC_BAMSTAT.out.bamstat, ch_inputs)
+        ch_bamstat_out     = WorkflowOncoanalyser.restoreMeta(RSEQC_BAMSTAT.out.txt, ch_inputs)
         ch_readdup_seq_out = WorkflowOncoanalyser.restoreMeta(RSEQC_READDUPLICATION.out.seq_xls, ch_inputs)
         ch_readdup_pos_out = WorkflowOncoanalyser.restoreMeta(RSEQC_READDUPLICATION.out.pos_xls, ch_inputs)
         ch_readdup_pdf_out = WorkflowOncoanalyser.restoreMeta(RSEQC_READDUPLICATION.out.pdf, ch_inputs)
@@ -101,5 +97,5 @@ workflow RSEQC_ANALYSIS {
 
     emit:
         qc_reports = ch_qc_reports_final
-        versions   = ch_versions
+        // Note: versions are collected via topics, not emitted here
 }
