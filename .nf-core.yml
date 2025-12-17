@@ -13,6 +13,7 @@ lint:
     - .github/PULL_REQUEST_TEMPLATE.md
     - assets/email_template.txt
     - docs/README.md
+    - .github/workflows/linting.yml
   modules_config:
     - rseqc/splitbam
   nextflow_config:
@@ -36,6 +37,12 @@ lint:
     - .github/workflows/awsfulltest.yml
     - lib/Utils.groovy
     - lib/WorkflowMain.groovy
+    - .github/workflows/nf-test.yml
+    - .github/actions/get-shards/action.yml
+    - .github/actions/nf-test/action.yml
+    - nf-test.config
+    - tests/default.nf.test
+  nf_test_content: false
 
 template:
   org: nf-core
