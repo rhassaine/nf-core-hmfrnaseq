@@ -202,7 +202,7 @@ workflow RNA_WORKFLOW {
         []
     )
 
-    ch_versions = ch_versions.mix(MULTIQC.out.versions)
+    // Note: MultiQC versions not collected - module emits tuples, not YAML files
 
     //
     // TASK: Aggregate software versions

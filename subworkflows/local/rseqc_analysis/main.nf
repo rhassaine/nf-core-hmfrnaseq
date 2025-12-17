@@ -30,7 +30,7 @@ workflow RSEQC_ANALYSIS {
                     return meta
             }
 
-        // Inputs for RSeQC modules ([meta, bam])
+        // Inputs for RSeQC modules ([meta, bam, bai])
         ch_rseqc_inputs = ch_inputs_sorted.runnable
             .map { meta, tumor_bam, tumor_bai ->
                 def meta_sample = Utils.getTumorRnaSample(meta)
@@ -41,7 +41,7 @@ workflow RSEQC_ANALYSIS {
                     subject_id: meta.subject_id,
                     group_id: meta.group_id,
                 ]
-                [meta_rseqc, tumor_bam]
+                [meta_rseqc, tumor_bam, tumor_bai]
             }
 
         // Inputs for splitbam ([meta, bam, bai], [meta2, bed])
