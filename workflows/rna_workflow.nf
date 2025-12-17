@@ -104,8 +104,8 @@ workflow RNA_WORKFLOW {
                     }
             }
 
+        // Note: FastQC versions are collected via topics
         FASTQC(ch_fastq_for_qc)
-        ch_versions = ch_versions.mix(FASTQC.out.versions)
         ch_fastqc_out = FASTQC.out.zip
     }
 
