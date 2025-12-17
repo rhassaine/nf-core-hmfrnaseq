@@ -7,7 +7,7 @@ import Utils
 // Import modules
 include { RSEQC_BAMSTAT }         from '../../../modules/nf-core/rseqc/bamstat/main'
 include { RSEQC_READDUPLICATION } from '../../../modules/nf-core/rseqc/readduplication/main'
-include { RSEQC_SPLITBAM }        from '../../../modules/nf-core/rseqc/splitbam/main'
+include { RSEQC_SPLITBAM }        from '../../../modules/local/rseqc_splitbam/main'
 
 workflow RSEQC_ANALYSIS {
     take:
