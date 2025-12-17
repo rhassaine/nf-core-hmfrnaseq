@@ -106,6 +106,13 @@
                     "type": "string",
                     "description": "UMI duplex delimiter as used by REDUX.",
                     "fa_icon": "fas fa-cog"
+                },
+                "rseqc_bed_file": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to BED file for RSeQC splitbam (rRNA regions).",
+                    "fa_icon": "fas fa-file-alt",
+                    "help_text": "BED file containing rRNA regions for RSeQC splitbam analysis. If not provided, defaults to genome-specific rRNA BED file."
                 }
             }
         },
