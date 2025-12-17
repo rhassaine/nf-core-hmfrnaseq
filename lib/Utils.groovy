@@ -180,7 +180,10 @@ class Utils {
 
         params.hmf_data_paths[params.genome_version.toString()]
             .each { k, v ->
-                fps << "${params.ref_data_hmf_data_path.replaceAll('/$', '')}/${v}"
+                // If path is already absolute (starts with /), use it as-is
+                // Otherwise, concatenate with base path
+                def path = v.startsWith('/') ? v : "${params.ref_data_hmf_data_path.replaceAll('/$', '')}/${v}"
+                fps << path
             }
 
         fps.each { fp_str ->
