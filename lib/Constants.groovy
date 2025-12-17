@@ -4,8 +4,8 @@ class Constants {
     static List GENOMES_SUPPORTED  = ['GRCh38_hmf']
     static List GENOMES_DEFINED    = Constants.GENOMES_VERSION_38
 
-    // HMF reference data URL
-    static String HMF_DATA_38_PATH = 'https://pub-cf6ba01919994c3cbd354659947f74d8.r2.dev/hmf_reference_data/hmftools/hmf_pipeline_resources.38_v2.0.0--3.tar.gz'
+    // HMF reference data URL (from oncoanalyser v2.3.0)
+    static String HMF_DATA_38_PATH = 'https://pub-cf6ba01919994c3cbd354659947f74d8.r2.dev/hmf_reference_data/hmftools/hmf_pipeline_resources.38_v2.3.0--2.tar.gz'
 
     static Integer DEFAULT_ISOFOX_READ_LENGTH = 151
 
