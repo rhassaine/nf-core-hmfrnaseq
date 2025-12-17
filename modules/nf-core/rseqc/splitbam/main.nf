@@ -15,6 +15,7 @@ process RSEQC_SPLITBAM {
     tuple val(meta), path("*.in.bam")  , emit: in_bam
     tuple val(meta), path("*.ex.bam")  , emit: ex_bam
     tuple val(meta), path("*.junk.bam"), emit: junk_bam
+    tuple val(meta), path("*.stats.txt"), emit: stats
     tuple val("${task.process}"), val('rseqc'), eval('split_bam.py --version | sed "s/split_bam.py //"'), emit: versions_rseqc, topic: versions
 
 
@@ -29,7 +30,7 @@ process RSEQC_SPLITBAM {
         -i $bam \\
         -r $bed \\
         -o $prefix \\
-        $args
+        $args > ${prefix}.stats.txt
     """
 
     stub:
@@ -38,5 +39,6 @@ process RSEQC_SPLITBAM {
     touch ${prefix}.in.bam
     touch ${prefix}.ex.bam
     touch ${prefix}.junk.bam
+    touch ${prefix}.stats.txt
     """
 }
