@@ -133,14 +133,22 @@ workflow RNA_WORKFLOW {
     }
 
     //
-    // TASK: RSeQC QC analysis (must run before Isofox for rRNA gating)
+    // TASK: RSeQC QC analysis (must run before Isofox for rRNA contamination check)
     //
+    // Split channel for multiple consumers
+    ch_align_rna_tumor_out
+        .multiMap { meta, bam, bai ->
+            rseqc: [meta, bam, bai]
+            isofox: [meta, bam, bai]
+        }
+        .set { ch_bam_split }
+
     ch_rseqc_out = channel.empty()
     ch_splitbam_stats = channel.empty()
     if (run_config.stages.rseqc) {
         // Run RSeQC QC on aligned BAMs
         // Note: RSeQC versions are collected via topics
-        RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out, ch_bed)
+        RSEQC_ANALYSIS(ch_inputs, ch_bam_split.rseqc, ch_bed)
 
         ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
         ch_splitbam_stats = RSEQC_ANALYSIS.out.splitbam_stats
@@ -180,11 +188,11 @@ workflow RNA_WORKFLOW {
     // Join passing samples with their BAM data for Isofox
     // If RSeQC is disabled, all samples pass through
     ch_samples_for_isofox = run_config.stages.rseqc
-        ? ch_align_rna_tumor_out
+        ? ch_bam_split.isofox
             .map { meta, bam, bai -> [meta.group_id, meta, bam, bai] }
             .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id, meta] }, by: 0)
             .map { group_id, meta_bam, bam, bai, meta_qc -> [meta_bam, bam, bai] }
-        : ch_align_rna_tumor_out
+        : ch_bam_split.isofox
 
     //
     // MODULE: Run Isofox to analyse RNA data

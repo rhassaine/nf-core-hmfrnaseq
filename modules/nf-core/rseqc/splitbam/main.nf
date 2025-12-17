@@ -25,10 +25,13 @@ process RSEQC_SPLITBAM {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def bed_unzip = bed.toString().endsWith('.gz') ? "gunzip -c ${bed} > bed_file.bed" : ""
+    def bed_file = bed.toString().endsWith('.gz') ? "bed_file.bed" : bed
     """
+    ${bed_unzip}
     split_bam.py \\
         -i $bam \\
-        -r $bed \\
+        -r ${bed_file} \\
         -o $prefix \\
         $args > ${prefix}.stats.txt
     """
