@@ -135,18 +135,80 @@ workflow RNA_WORKFLOW {
     ch_align_rna_tumor_out.view { it[0].id }
 
     //
+    // TASK: RSeQC QC analysis (must run before Isofox for rRNA gating)
+    //
+    ch_rseqc_out = channel.empty()
+    ch_splitbam_stats = channel.empty()
+    if (run_config.stages.rseqc) {
+        // Run RSeQC QC on aligned BAMs
+        // Note: RSeQC versions are collected via topics
+        RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out, ch_bed)
+
+        ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
+        ch_splitbam_stats = RSEQC_ANALYSIS.out.splitbam_stats
+
+    } else {
+
+        ch_rseqc_out = ch_inputs.map { meta -> [meta, []] }
+
+    }
+
+    //
+    // TASK: rRNA QC gate - parse splitbam stats and branch samples
+    //
+    // Parse stats and add rRNA metrics to meta, then branch into pass/fail
+    ch_rrna_qc_result = ch_splitbam_stats
+        .map { meta, stats_file ->
+            def rrna_stats = Utils.parseRrnaStats(stats_file)
+            def qc_result = Utils.checkRrnaQc(
+                rrna_stats,
+                params.rrna_threshold_count ?: 0,
+                params.rrna_threshold_percent ?: 0
+            )
+            // Log the rRNA stats for visibility
+            log.info "rRNA QC [${meta.group_id}]: ${rrna_stats.rrna_reads}/${rrna_stats.total_reads} reads (${String.format('%.2f', rrna_stats.rrna_percent)}%) - ${qc_result.pass ? 'PASS' : 'FAIL'}"
+            if (!qc_result.pass) {
+                log.warn "Sample ${meta.group_id} FAILED rRNA QC: ${qc_result.fail_reason}"
+            }
+            [meta, qc_result.pass, rrna_stats]
+        }
+        .branch { meta, pass, rrna_stats ->
+            pass: pass
+                return meta
+            fail: true
+                return meta
+        }
+
+    // Join passing samples with their BAM data for Isofox
+    // If RSeQC is disabled, all samples pass through
+    ch_samples_for_isofox = run_config.stages.rseqc
+        ? ch_align_rna_tumor_out
+            .map { meta, bam, bai -> [meta.group_id, meta, bam, bai] }
+            .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id, meta] }, by: 0)
+            .map { group_id, meta_bam, bam, bai, meta_qc -> [meta_bam, bam, bai] }
+        : ch_align_rna_tumor_out
+
+    //
     // MODULE: Run Isofox to analyse RNA data
     //
-   // channel: [ meta, isofox_dir ]
+    // channel: [ meta, isofox_dir ]
     ch_isofox_out = channel.empty()
     if (run_config.stages.isofox) {
 
         isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
         isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
 
+        // Get inputs for samples that passed rRNA QC
+        ch_inputs_for_isofox = run_config.stages.rseqc
+            ? ch_inputs
+                .map { meta -> [meta.group_id, meta] }
+                .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id] }, by: 0)
+                .map { group_id, meta -> meta }
+            : ch_inputs
+
         ISOFOX_QUANTIFICATION(
-            ch_inputs,
-            ch_align_rna_tumor_out,
+            ch_inputs_for_isofox,
+            ch_samples_for_isofox,
             ref_data.genome_fasta,
             ref_data.genome_version,
             ref_data.genome_fai,
@@ -167,21 +229,6 @@ workflow RNA_WORKFLOW {
     } else {
 
         ch_isofox_out = ch_inputs.map { meta -> [meta, []] }
-
-    }
-
-
-    ch_rseqc_out = channel.empty()
-    if (run_config.stages.rseqc) {
-        // Run RSeQC QC on aligned BAMs
-        // Note: RSeQC versions are collected via topics
-        RSEQC_ANALYSIS(ch_inputs, ch_align_rna_tumor_out, ch_bed)
-
-        ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
-
-    } else {
-
-        ch_rseqc_out = ch_inputs.map { meta -> [meta, []] }
 
     }
 

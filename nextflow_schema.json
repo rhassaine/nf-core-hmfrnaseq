@@ -113,6 +113,20 @@
                     "description": "Path to BED file for RSeQC splitbam (rRNA regions).",
                     "fa_icon": "fas fa-file-alt",
                     "help_text": "BED file containing rRNA regions for RSeQC splitbam analysis. If not provided, defaults to genome-specific rRNA BED file."
+                },
+                "rrna_threshold_count": {
+                    "type": "integer",
+                    "default": 143303744,
+                    "description": "Maximum allowed rRNA read count before sample fails QC (0 = disabled).",
+                    "fa_icon": "fas fa-ban",
+                    "help_text": "Samples with rRNA read counts exceeding this threshold will be excluded from downstream analysis (Isofox). Set to 0 to disable count-based filtering."
+                },
+                "rrna_threshold_percent": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Maximum allowed rRNA percentage before sample fails QC (0 = disabled).",
+                    "fa_icon": "fas fa-percent",
+                    "help_text": "Samples with rRNA percentage exceeding this threshold will be excluded from downstream analysis (Isofox). Set to 0 to disable percentage-based filtering. Example: 5.0 means 5% maximum."
                 }
             }
         },

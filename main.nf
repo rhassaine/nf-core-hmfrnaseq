@@ -43,6 +43,10 @@ params.ref_data_genome_dict          = getGenomeAttribute('dict')
 params.ref_data_genome_star_index    = getGenomeAttribute('star_index')
 params.rseqc_bed_file                = getGenomeAttribute('rseqc_bed')
 
+// rRNA QC thresholds (0 = disabled)
+params.rrna_threshold_count          = params.rrna_threshold_count ?: 143303744
+params.rrna_threshold_percent        = params.rrna_threshold_percent ?: 0
+
 WorkflowMain.setParamsDefaults(params, log)
 WorkflowMain.validateParams(params, log)
 

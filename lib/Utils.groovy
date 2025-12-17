@@ -345,4 +345,49 @@ class Utils {
         }
     }
 
+    // Parse splitbam stats file and return rRNA metrics
+    public static parseRrnaStats(stats_file) {
+        def total_reads = 0
+        def rrna_reads = 0
+
+        stats_file.eachLine { line ->
+            if (line.contains('Total records:')) {
+                total_reads = line.split(':')[-1].trim() as Long
+            } else if (line.contains('consumed by input gene list')) {
+                rrna_reads = line.split(':')[-1].trim() as Long
+            }
+        }
+
+        def rrna_percent = total_reads > 0 ? (rrna_reads / total_reads) * 100.0 : 0.0
+
+        return [
+            total_reads: total_reads,
+            rrna_reads: rrna_reads,
+            rrna_percent: rrna_percent
+        ]
+    }
+
+    // Check if sample passes rRNA QC thresholds
+    public static checkRrnaQc(rrna_stats, threshold_count, threshold_percent) {
+        def pass = true
+        def fail_reasons = []
+
+        // Check absolute count threshold (0 = disabled)
+        if (threshold_count > 0 && rrna_stats.rrna_reads > threshold_count) {
+            pass = false
+            fail_reasons << "rRNA reads (${rrna_stats.rrna_reads}) exceeds threshold (${threshold_count})"
+        }
+
+        // Check percentage threshold (0 = disabled)
+        if (threshold_percent > 0 && rrna_stats.rrna_percent > threshold_percent) {
+            pass = false
+            fail_reasons << "rRNA percentage (${String.format('%.2f', rrna_stats.rrna_percent)}%) exceeds threshold (${threshold_percent}%)"
+        }
+
+        return [
+            pass: pass,
+            fail_reason: fail_reasons.join('; ') ?: 'none'
+        ]
+    }
+
 }
