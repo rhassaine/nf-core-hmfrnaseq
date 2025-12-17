@@ -41,7 +41,7 @@ params.ref_data_genome_fasta         = getGenomeAttribute('fasta')
 params.ref_data_genome_fai           = getGenomeAttribute('fai')
 params.ref_data_genome_dict          = getGenomeAttribute('dict')
 params.ref_data_genome_star_index    = getGenomeAttribute('star_index')
-params.rseqc_bed_file                = getGenomeAttribute('rseqc_bed')
+params.rseqc_bed_file                = getGenomeAttribute('rseqc_bed_file')
 
 // rRNA QC thresholds (0 = disabled)
 params.rrna_threshold_count          = params.rrna_threshold_count ?: 143303744
