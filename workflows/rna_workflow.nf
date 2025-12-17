@@ -132,8 +132,6 @@ workflow RNA_WORKFLOW {
         }
     }
 
-    ch_align_rna_tumor_out.view { it[0].id }
-
     //
     // TASK: RSeQC QC analysis (must run before Isofox for rRNA gating)
     //

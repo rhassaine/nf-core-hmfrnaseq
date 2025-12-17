@@ -25,7 +25,8 @@ workflow RSEQC_ANALYSIS {
             }
             .branch { meta, tumor_bam, tumor_bai ->
                 def has_existing = Utils.hasExistingInput(meta, Constants.INPUT.RSEQC_DIR)
-                runnable: tumor_bam && !has_existing
+                def has_bam = tumor_bam && !(tumor_bam instanceof List && tumor_bam.isEmpty())
+                runnable: has_bam && !has_existing
                 skip: true
                     return meta
             }
