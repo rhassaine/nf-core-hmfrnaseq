@@ -356,7 +356,7 @@ class Utils {
         stats_file.eachLine { line ->
             if (line.contains('Total records:')) {
                 total_reads = line.split(':')[-1].trim() as Long
-            } else if (line.contains('consumed by input gene list')) {
+            } else if (line.contains('.in.bam')) {
                 rrna_reads = line.split(':')[-1].trim() as Long
             }
         }
