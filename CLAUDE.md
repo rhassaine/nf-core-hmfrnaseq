@@ -19,16 +19,19 @@ nextflow run . -profile test,singularity --outdir results
 
 # Full run with custom input
 nextflow run . -profile docker --input samplesheet.csv --outdir results --genome GRCh38_hmf
+
+# Stub run (dry-run with placeholders)
+nextflow run . -profile test_stub,docker --outdir results -stub
 ```
 
 ### Linting and Validation
 
 ```bash
-# Validate pipeline schema
-nextflow run . --help
-
 # Run nf-core linting (requires nf-core tools)
 nf-core lint
+
+# Validate parameters via help
+nextflow run . --help
 ```
 
 ### Testing
@@ -36,8 +39,11 @@ nf-core lint
 The pipeline uses nf-test for module and subworkflow testing. Test files are located alongside modules in `tests/` subdirectories with `.nf.test` extension.
 
 ```bash
-# Run nf-test (from module/subworkflow directory)
-nf-test test
+# Run a specific module test
+cd modules/local/rseqc_splitbam && nf-test test tests/main.nf.test
+
+# Run nf-core module tests
+cd modules/nf-core/fastqc && nf-test test tests/main.nf.test
 ```
 
 ## Architecture
@@ -50,9 +56,19 @@ The pipeline supports multiple run modes controlled by `--mode` parameter (defau
 
 ### Entry Points
 
-- [main.nf](main.nf) - Pipeline entry point, dispatches to workflows based on mode
-- [workflows/rna_workflow.nf](workflows/rna_workflow.nf) - Main RNA analysis workflow
-- [workflows/fastqc_workflow.nf](workflows/fastqc_workflow.nf) - FastQC-only workflow
+- `main.nf` - Pipeline entry point, dispatches to workflows based on mode
+- `workflows/rna_workflow.nf` - Main RNA analysis workflow
+- `workflows/fastqc_workflow.nf` - FastQC-only workflow
+
+### Pipeline Stages (rna_workflow)
+
+1. **PREPARE_REFERENCE** - Downloads/stages HMF reference data and genome indices
+2. **FASTQC** - Quality control on raw reads
+3. **READ_ALIGNMENT_RNA** - STAR alignment → SAMtools sort → Sambamba merge → GATK MarkDuplicates
+4. **RSEQC_ANALYSIS** - RSeQC quality metrics including rRNA contamination check
+5. **rRNA QC Gate** - Filters samples exceeding rRNA thresholds (configurable via `--rrna_threshold_count`, `--rrna_threshold_percent`)
+6. **ISOFOX_QUANTIFICATION** - Transcript quantification and fusion detection (only for samples passing rRNA QC)
+7. **MULTIQC** - Aggregate QC reports
 
 ### Key Subworkflows (subworkflows/local/)
 
@@ -64,36 +80,50 @@ The pipeline supports multiple run modes controlled by `--mode` parameter (defau
 ### Library Classes (lib/)
 
 Groovy classes providing utilities:
-- [Constants.groovy](lib/Constants.groovy) - Enums (RunMode, Process, FileType, SampleType), reference data URLs, input type mappings
-- [Utils.groovy](lib/Utils.groovy) - Input parsing, sample extraction utilities
-- [WorkflowMain.groovy](lib/WorkflowMain.groovy) - Parameter validation, run config generation
-- [Processes.groovy](lib/Processes.groovy) - Process stage configuration
+- `Constants.groovy` - Enums (RunMode, Process, FileType, SampleType), HMF reference data URLs, input type mappings
+- `Utils.groovy` - Input CSV parsing, sample extraction (`getTumorRnaSample`, `getTumorRnaBam`, etc.), rRNA QC logic
+- `WorkflowMain.groovy` - Parameter validation, run config generation
+- `Processes.groovy` - Process stage configuration, determines which stages run based on inputs
 
 ### Configuration Files (conf/)
 
 - `base.config` - Default resource allocations
-- `hmf_genomes.config` - HMF genome reference paths
-- `hmf_data.config` - HMF tool reference data paths
+- `hmf_genomes.config` - HMF genome reference paths (STAR index, BED files, etc.)
+- `hmf_data.config` - HMF tool reference data paths (Isofox counts, known fusions, etc.)
 - `modules.config` - Module-specific ext.args and publish settings
-- `test.config` - Test profile settings
+- `test.config` / `test_full.config` / `test_stub.config` - Test profile settings
 
 ### Module Organization
 
-- `modules/nf-core/` - Standard nf-core modules (FastQC, MultiQC, STAR, GATK4, etc.)
-- `modules/local/` - Custom modules (fastp, isofox, gridss index, star align wrapper)
-
-## Key Parameters
-
-- `--genome`: Reference genome (GRCh37_hmf, GRCh38_hmf)
-- `--input`: Samplesheet CSV path
-- `--mode`: Workflow mode (rna_workflow, fastqc_workflow)
-- `--isofox_functions`: Comma-separated Isofox analysis functions
-- `--max_fastq_records`: FASTQ splitting threshold (0 = no split)
+- `modules/nf-core/` - Standard nf-core modules (FastQC, MultiQC, STAR, GATK4, SAMtools, RSeQC, etc.)
+- `modules/local/` - Custom modules (fastp, isofox, gridss_index, star_align, rseqc_splitbam)
 
 ## Input Samplesheet Format
 
-CSV with columns defining samples, FASTQs, and optional pre-computed results. Sample types include tumor RNA with paired-end FASTQs.
+CSV with columns: `group_id`, `subject_id`, `sample_id`, `sample_type`, `sequence_type`, `filetype`, `filepath`, `info`
+
+```csv
+group_id,subject_id,sample_id,sample_type,sequence_type,filetype,filepath,info
+SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,fastq,/path/to/R1.fq.gz;/path/to/R2.fq.gz,library_id:LIB001;lane:L001
+```
+
+- `sample_type`: `tumor`
+- `sequence_type`: `rna`
+- `filetype`: `fastq`, `bam`, `bai`, `isofox_dir`, `rseqc_dir`
+- `info`: Semicolon-separated key:value pairs (required for FASTQ: `library_id`, `lane`)
+- For FASTQs, `filepath` contains forward and reverse reads separated by `;`
+
+## Key Parameters
+
+- `--genome`: Reference genome (`GRCh38_hmf` supported)
+- `--input`: Samplesheet CSV path
+- `--mode`: Workflow mode (`rna_workflow`, `fastqc_workflow`)
+- `--isofox_functions`: Comma-separated Isofox analysis functions (default: `TRANSCRIPT_COUNTS;ALT_SPLICE_JUNCTIONS;FUSIONS;RETAINED_INTRONS`)
+- `--max_fastq_records`: FASTQ splitting threshold (0 = no split)
+- `--rrna_threshold_count`: Maximum rRNA read count before failing QC (default: 143303744)
+- `--rrna_threshold_percent`: Maximum rRNA percentage before failing QC (0 = disabled)
+- `--prepare_reference_only`: Only stage reference data, don't run analysis
 
 ## Reference Data
 
-HMF reference data is automatically downloaded/extracted from public URLs defined in Constants.groovy. Supports both GRCh37 and GRCh38. Use `--prepare_reference_only true` to pre-stage reference data.
+HMF reference data is automatically downloaded/extracted from public URLs defined in `Constants.groovy`. The pipeline uses HMF pipeline resources v2.3.0 for GRCh38. Use `--prepare_reference_only true` to pre-stage reference data.
