@@ -4,6 +4,7 @@
 
 import Constants
 import Utils
+import WorkflowOncoanalyser
 
 include { GATK4_MARKDUPLICATES } from '../../../modules/nf-core/gatk4/markduplicates/main'
 include { SAMBAMBA_MERGE       } from '../../../modules/local/sambamba/merge/main'

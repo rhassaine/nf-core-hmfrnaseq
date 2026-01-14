@@ -4,6 +4,7 @@
 
 import Constants
 import Utils
+import WorkflowOncoanalyser
 
 include { ISOFOX } from '../../../modules/local/isofox/main'
 

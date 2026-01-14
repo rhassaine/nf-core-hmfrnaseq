@@ -3,6 +3,7 @@ nextflow.enable.dsl=2
 
 import Constants
 import Utils
+import WorkflowOncoanalyser
 
 // Import modules
 include { RSEQC_BAMSTAT }         from '../../../modules/nf-core/rseqc/bamstat/main'

@@ -60,7 +60,7 @@ class Utils {
                         Nextflow.exit(1)
                     }
 
-                    if (meta_sample.containsKey(filetype_enum) & filetype_enum != Constants.FileType.FASTQ) {
+                    if (meta_sample.containsKey(filetype_enum) && filetype_enum != Constants.FileType.FASTQ) {
                         log.error "got duplicate file for ${group_id} ${sample_type_enum}/${sequence_type_enum}: ${filetype_enum}"
                         Nextflow.exit(1)
                     }
@@ -349,16 +349,34 @@ class Utils {
     }
 
     // Parse splitbam stats file and return rRNA metrics
+    // Expected format from RSeQC split_bam.py:
+    //   Total records: 12345
+    //   ...
+    //   prefix.in.bam: 1234   (reads overlapping BED regions, i.e. rRNA)
+    //   prefix.ex.bam: 5678   (reads not overlapping BED regions)
+    //   prefix.junk.bam: 123  (unmapped/QC-failed reads)
     public static parseRrnaStats(stats_file) {
-        def total_reads = 0
-        def rrna_reads = 0
+        def total_reads = 0L
+        def rrna_reads = 0L
 
-        stats_file.eachLine { line ->
-            if (line.contains('Total records:')) {
-                total_reads = line.split(':')[-1].trim() as Long
-            } else if (line.contains('.in.bam')) {
-                rrna_reads = line.split(':')[-1].trim() as Long
+        try {
+            stats_file.eachLine { line ->
+                def trimmed = line.trim()
+                // Match "Total records: <number>"
+                if (trimmed.startsWith('Total records:')) {
+                    def value = trimmed.replaceFirst(/^Total records:\s*/, '')
+                    total_reads = value.isLong() ? value.toLong() : 0L
+                }
+                // Match "<prefix>.in.bam: <number>" - reads in BED regions (rRNA)
+                else if (trimmed ==~ /.*\.in\.bam:\s*\d+/) {
+                    def value = trimmed.split(':')[-1].trim()
+                    rrna_reads = value.isLong() ? value.toLong() : 0L
+                }
             }
+        } catch (Exception e) {
+            // Return zeros if file cannot be parsed
+            total_reads = 0L
+            rrna_reads = 0L
         }
 
         def rrna_percent = total_reads > 0 ? (rrna_reads / total_reads) * 100.0 : 0.0
