@@ -80,6 +80,7 @@ workflow RSEQC_ANALYSIS {
         ch_splitbam_ex_bam   = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.ex_bam, ch_inputs)
         ch_splitbam_junk_bam = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.junk_bam, ch_inputs)
         ch_splitbam_stats    = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.stats, ch_inputs)
+        ch_splitbam_multiqc  = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.multiqc, ch_inputs)
 
         // Collect QC outputs for MultiQC
         ch_qc_reports = channel.empty()
@@ -92,7 +93,8 @@ workflow RSEQC_ANALYSIS {
                 ch_splitbam_in_bam,
                 ch_splitbam_ex_bam,
                 ch_splitbam_junk_bam,
-                ch_splitbam_stats
+                ch_splitbam_stats,
+                ch_splitbam_multiqc
             )
 
         // Add skipped samples with empty outputs
