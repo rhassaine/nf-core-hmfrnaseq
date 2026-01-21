@@ -37,11 +37,12 @@ process RSEQC_SPLITBAM {
         $args > ${prefix}.stats.txt
 
     # Parse stats and create MultiQC-compatible YAML
-    # Output format is "%-55s%d" so number is last field on each line
-    total_reads=\$(grep "Total records:" ${prefix}.stats.txt | awk '{print \$NF}')
-    rrna_reads=\$(grep "\\.in\\.bam" ${prefix}.stats.txt | awk '{print \$NF}')
-    non_rrna_reads=\$(grep "\\.ex\\.bam" ${prefix}.stats.txt | awk '{print \$NF}')
-    junk_reads=\$(grep "\\.junk\\.bam" ${prefix}.stats.txt | awk '{print \$NF}')
+    # Output format is "%-55s%d" - number follows immediately after text with no space
+    # Use grep -oE to extract just the trailing digits
+    total_reads=\$(grep "Total records:" ${prefix}.stats.txt | grep -oE '[0-9]+\$')
+    rrna_reads=\$(grep "\\.in\\.bam" ${prefix}.stats.txt | grep -oE '[0-9]+\$')
+    non_rrna_reads=\$(grep "\\.ex\\.bam" ${prefix}.stats.txt | grep -oE '[0-9]+\$')
+    junk_reads=\$(grep "\\.junk\\.bam" ${prefix}.stats.txt | grep -oE '[0-9]+\$')
 
     # Default to 0 if empty
     total_reads=\${total_reads:-0}
