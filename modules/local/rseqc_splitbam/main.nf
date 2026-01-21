@@ -37,10 +37,17 @@ process RSEQC_SPLITBAM {
         $args > ${prefix}.stats.txt
 
     # Parse stats and create MultiQC-compatible YAML
-    total_reads=\$(grep "Total records:" ${prefix}.stats.txt | awk '{print \$3}')
-    rrna_reads=\$(grep ".in.bam:" ${prefix}.stats.txt | awk '{print \$2}')
-    non_rrna_reads=\$(grep ".ex.bam:" ${prefix}.stats.txt | awk '{print \$2}')
-    junk_reads=\$(grep ".junk.bam:" ${prefix}.stats.txt | awk '{print \$2}')
+    # Output format is "%-55s%d" so number is last field on each line
+    total_reads=\$(grep "Total records:" ${prefix}.stats.txt | awk '{print \$NF}')
+    rrna_reads=\$(grep "\\.in\\.bam" ${prefix}.stats.txt | awk '{print \$NF}')
+    non_rrna_reads=\$(grep "\\.ex\\.bam" ${prefix}.stats.txt | awk '{print \$NF}')
+    junk_reads=\$(grep "\\.junk\\.bam" ${prefix}.stats.txt | awk '{print \$NF}')
+
+    # Default to 0 if empty
+    total_reads=\${total_reads:-0}
+    rrna_reads=\${rrna_reads:-0}
+    non_rrna_reads=\${non_rrna_reads:-0}
+    junk_reads=\${junk_reads:-0}
 
     # Calculate percentage (handle division by zero)
     if [ "\$total_reads" -gt 0 ]; then
