@@ -18,6 +18,7 @@ class Constants {
         ALIGNMENT,
         ISOFOX,
         RSEQC,
+        MULTIQC,
     }
 
     static enum FileType {

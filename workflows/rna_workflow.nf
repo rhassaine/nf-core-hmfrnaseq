@@ -44,7 +44,7 @@ include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
 include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
 
-include { MULTIQC               } from '../modules/nf-core/multiqc/main'
+include { MULTIQC               } from '../modules/local/multiqc/main'
 include { FASTQC                } from '../modules/nf-core/fastqc/main'
 
 /*
@@ -239,21 +239,31 @@ workflow RNA_WORKFLOW {
     }
 
     //
-    // TASK: MultiQC
+    // TASK: MultiQC (per-sample reports)
     //
-    ch_multiqc_files = channel.empty()
-        .mix(ch_fastqc_out.map { meta, files -> files }.flatten().filter { it })
-        .mix(ch_rseqc_out.map { meta, files -> files }.flatten().filter { it })
-        .collect()
+    if (run_config.stages.multiqc) {
+        // Group QC files by sample (group_id) for per-sample reports
+        ch_multiqc_per_sample = channel.empty()
+            .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
+            .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
+            .filter { group_id, files -> files }
+            .groupTuple(by: 0)
+            .map { group_id, file_lists ->
+                def all_files = file_lists.flatten().findAll { it }
+                def meta = [id: group_id, key: group_id]
+                [meta, all_files]
+            }
+            .filter { meta, files -> files.size() > 0 }
 
-    MULTIQC(
-        ch_multiqc_files,
-        [],
-        [],
-        [],
-        [],
-        []
-    )
+        MULTIQC(
+            ch_multiqc_per_sample,
+            [],
+            [],
+            [],
+            [],
+            []
+        )
+    }
 
     // Note: MultiQC versions not collected - module emits tuples, not YAML files
 

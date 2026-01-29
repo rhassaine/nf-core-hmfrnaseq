@@ -1,0 +1,57 @@
+process MULTIQC {
+    tag "$meta.id"
+    label 'process_single'
+
+    conda "${moduleDir}/environment.yml"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'https://community-cr-prod.seqera.io/docker/registry/v2/blobs/sha256/34/34e733a9ae16a27e80fe00f863ea1479c96416017f24a907996126283e7ecd4d/data' :
+        'community.wave.seqera.io/library/multiqc:1.33--ee7739d47738383b' }"
+
+    input:
+    tuple val(meta), path(multiqc_files, stageAs: "?/*")
+    path(multiqc_config)
+    path(extra_multiqc_config)
+    path(multiqc_logo)
+    path(replace_names)
+    path(sample_names)
+
+    output:
+    tuple val(meta), path("*.html")      , emit: report
+    tuple val(meta), path("*_data")      , emit: data
+    tuple val(meta), path("*_plots")     , optional:true, emit: plots
+    tuple val("${task.process}"), val('multiqc'), eval('multiqc --version | sed "s/.* //g"'), emit: versions
+
+    when:
+    task.ext.when == null || task.ext.when
+
+    script:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    def config = multiqc_config ? "--config ${multiqc_config}" : ''
+    def extra_config = extra_multiqc_config ? "--config ${extra_multiqc_config}" : ''
+    def logo = multiqc_logo ? "--cl-config 'custom_logo: \"${multiqc_logo}\"'" : ''
+    def replace = replace_names ? "--replace-names ${replace_names}" : ''
+    def samples = sample_names ? "--sample-names ${sample_names}" : ''
+    """
+    multiqc \\
+        --force \\
+        --filename ${prefix}_multiqc_report \\
+        --title "${prefix} QC Report" \\
+        ${args} \\
+        ${config} \\
+        ${extra_config} \\
+        ${logo} \\
+        ${replace} \\
+        ${samples} \\
+        .
+    """
+
+    stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    """
+    mkdir ${prefix}_multiqc_data
+    touch ${prefix}_multiqc_data/.stub
+    mkdir ${prefix}_multiqc_plots
+    touch ${prefix}_multiqc_report.html
+    """
+}
