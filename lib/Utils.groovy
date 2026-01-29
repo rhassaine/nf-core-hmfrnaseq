@@ -367,9 +367,10 @@ class Utils {
                     def value = trimmed.replaceFirst(/^Total records:\s*/, '')
                     total_reads = value.isLong() ? value.toLong() : 0L
                 }
-                // Match "<prefix>.in.bam: <number>" - reads in BED regions (rRNA)
-                else if (trimmed ==~ /.*\.in\.bam:\s*\d+/) {
-                    def value = trimmed.split(':')[-1].trim()
+                // Match "<prefix>.in.bam ...:<number>" - reads in BED regions (rRNA)
+                // Format: "prefix.in.bam (Alignments consumed by input gene list):12345"
+                else if (trimmed ==~ /.*\.in\.bam.*:\d+/) {
+                    def value = (trimmed =~ /(\d+)$/)[0][1]
                     rrna_reads = value.isLong() ? value.toLong() : 0L
                 }
             }
