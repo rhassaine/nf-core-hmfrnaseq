@@ -44,7 +44,8 @@ include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
 include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
 
-include { MULTIQC               } from '../modules/local/multiqc/main'
+include { MULTIQC                            } from '../modules/local/multiqc/main'
+include { MULTIQC as MULTIQC_AGGREGATED     } from '../modules/local/multiqc/main'
 include { FASTQC                } from '../modules/nf-core/fastqc/main'
 
 /*
@@ -262,6 +263,27 @@ workflow RNA_WORKFLOW {
 
         MULTIQC(
             ch_multiqc_per_sample,
+            [],
+            [],
+            [],
+            [],
+            []
+        )
+
+        // Aggregated MultiQC report (all samples, no FastQC - one row per sample)
+        ch_multiqc_aggregated = channel.empty()
+            .mix(ch_rseqc_out.map { meta, files -> files })
+            .mix(ch_markdups_metrics.map { meta, files -> files })
+            .flatten()
+            .filter { it }
+            .collect()
+            .map { files ->
+                def meta = [id: 'aggregated', key: 'aggregated']
+                [meta, files]
+            }
+
+        MULTIQC_AGGREGATED(
+            ch_multiqc_aggregated,
             [],
             [],
             [],
