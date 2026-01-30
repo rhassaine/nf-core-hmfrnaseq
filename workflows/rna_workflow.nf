@@ -69,7 +69,9 @@ workflow RNA_WORKFLOW {
 
     // Create channel for BED file input
     // channel: [ meta2, bed ]
-    ch_bed = channel.of([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
+    ch_bed = params.rseqc_bed_file
+        ? channel.of([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
+        : channel.empty()
 
     // Set up reference data, assign more human readable variables
     PREPARE_REFERENCE(
@@ -110,6 +112,7 @@ workflow RNA_WORKFLOW {
     }
 
     ch_align_rna_tumor_out = channel.empty()
+    ch_markdups_metrics = channel.empty()
 
     if (run_config.stages.alignment) {
 
@@ -121,6 +124,7 @@ workflow RNA_WORKFLOW {
         ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
+        ch_markdups_metrics = ch_markdups_metrics.mix(READ_ALIGNMENT_RNA.out.markdups_metrics)
 
     } else {
 
@@ -246,6 +250,7 @@ workflow RNA_WORKFLOW {
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
             .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
+            .mix(ch_markdups_metrics.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .filter { group_id, files -> files }
             .groupTuple(by: 0)
             .map { group_id, file_lists ->

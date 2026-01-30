@@ -206,6 +206,10 @@ workflow READ_ALIGNMENT_RNA {
         WorkflowOncoanalyser.restoreMeta(GATK4_MARKDUPLICATES.out.bai, ch_inputs),
     )
 
+    // Capture MarkDuplicates metrics for MultiQC
+    // channel: [ meta, metrics ]
+    ch_markdups_metrics = WorkflowOncoanalyser.restoreMeta(GATK4_MARKDUPLICATES.out.metrics, ch_inputs)
+
     // Set outputs
     // channel: [ meta, bam, bai ]
     ch_bam_out = channel.empty()
@@ -215,7 +219,8 @@ workflow READ_ALIGNMENT_RNA {
         )
 
     emit:
-    rna_tumor = ch_bam_out  // channel: [ meta, bam, bai ]
+    rna_tumor = ch_bam_out           // channel: [ meta, bam, bai ]
+    markdups_metrics = ch_markdups_metrics  // channel: [ meta, metrics ]
 
     versions  = ch_versions // channel: [ versions.yml ]
 }
