@@ -419,9 +419,14 @@
         "mode": {
             "type": "string",
             "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
-            "enum": ["rna_workflow", "fastqc_workflow", "other_mode"],
+            "enum": ["rna_workflow", "fastqc_workflow", "redux_test", "other_mode"],
             "default": "rna_workflow",
             "fa_icon": "fas fa-cogs"
+        },
+        "redux_test_bam": {
+            "type": "string",
+            "description": "Path to BAM file for REDUX testing (redux_test mode only).",
+            "fa_icon": "fas fa-file"
         }
     }
 }

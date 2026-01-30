@@ -71,6 +71,7 @@ if (workflow.stubRun && params.create_stub_placeholders) {
 
 include { RNA_WORKFLOW }    from './workflows/rna_workflow'
 include { FASTQC_WORKFLOW } from './workflows/fastqc_workflow'
+include { REDUX_TEST }      from './workflows/redux_test'
 
 run_mode = Utils.getRunMode(params.mode, log)
 
@@ -83,6 +84,8 @@ workflow NFCORE_HMFRNASEQ {
         RNA_WORKFLOW()
     } else if (run_mode === Constants.RunMode.FASTQC_WORKFLOW) {
         FASTQC_WORKFLOW()
+    } else if (run_mode === Constants.RunMode.REDUX_TEST) {
+        REDUX_TEST()
     } else {
         log.error("received bad run mode: ${run_mode}")
         Nextflow.exit(1)
