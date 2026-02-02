@@ -419,7 +419,7 @@
         "mode": {
             "type": "string",
             "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
-            "enum": ["rna_workflow", "fastqc_workflow", "redux_test", "other_mode"],
+            "enum": ["rna_workflow", "rna_redux_workflow", "fastqc_workflow", "redux_test", "other_mode"],
             "default": "rna_workflow",
             "fa_icon": "fas fa-cogs"
         },
