@@ -6,6 +6,7 @@ import Constants
 import Utils
 import WorkflowOncoanalyser
 
+include { BAMCHECKER     } from '../../../modules/local/bamchecker/main'
 include { REDUX          } from '../../../modules/local/redux/main'
 include { SAMBAMBA_MERGE } from '../../../modules/local/sambamba/merge/main'
 include { SAMTOOLS_SORT  } from '../../../modules/nf-core/samtools/sort/main'
@@ -24,6 +25,9 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     genome_dict       // channel: [mandatory] /path/to/genome.dict
     unmap_regions     // channel: [mandatory] /path/to/unmap_regions.tsv
     msi_jitter_sites  // channel: [mandatory] /path/to/msi_jitter_sites.tsv.gz
+
+    // Options
+    bamchecker_enable // val: [mandatory] whether to run BAMCHECKER before REDUX
 
     main:
     // channel for version.yml files
@@ -175,26 +179,54 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     ch_versions = ch_versions.mix(SAMBAMBA_MERGE.out.versions)
 
     //
-    // MODULE: REDUX duplicate marking
+    // MODULE: BAMCHECKER (optional) - validate BAM before REDUX
     //
-    // Create process input channel
-    // channel: [ meta_redux, [bam], [] ]
-    ch_redux_inputs = channel.empty()
+    // Collect BAMs from merge or single-BAM path
+    // channel: [ meta, bam ]
+    ch_bams_for_checking = channel.empty()
         .mix(
             WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs),
             WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs),
         )
         .map { meta, bam ->
             def meta_sample = Utils.getTumorRnaSample(meta)
-            def meta_redux = [
+            def meta_bam = [
                 key: meta.group_id,
                 id: "${meta.group_id}_${meta_sample.sample_id}",
                 sample_id: Utils.getTumorRnaSampleName(meta),
                 subject_id: meta.subject_id,
                 group_id: meta.group_id,
             ]
+            return [meta_bam, bam]
+        }
+
+    // Run BAMCHECKER if enabled
+    ch_bams_for_redux = channel.empty()
+    if (bamchecker_enable) {
+        BAMCHECKER(
+            ch_bams_for_checking,
+            genome_fasta,
+            genome_fai,
+        )
+
+        ch_versions = ch_versions.mix(BAMCHECKER.out.versions)
+
+        // Use checked BAMs for REDUX
+        ch_bams_for_redux = BAMCHECKER.out.bam
+    } else {
+        // Skip BAMCHECKER, pass BAMs directly to REDUX
+        ch_bams_for_redux = ch_bams_for_checking
+    }
+
+    //
+    // MODULE: REDUX duplicate marking
+    //
+    // Create process input channel
+    // channel: [ meta_redux, [bam], [] ]
+    ch_redux_inputs = ch_bams_for_redux
+        .map { meta, bam ->
             // REDUX expects [bam] list and [bai] list (bai not used in command)
-            return [meta_redux, [bam], []]
+            return [meta, [bam], []]
         }
 
     // Run process

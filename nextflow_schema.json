@@ -427,6 +427,12 @@
             "type": "string",
             "description": "Path to BAM file for REDUX testing (redux_test mode only).",
             "fa_icon": "fas fa-file"
+        },
+        "bamchecker_enable": {
+            "type": "boolean",
+            "description": "Run BAMCHECKER to validate BAM before REDUX duplicate marking (rna_redux_workflow only).",
+            "default": true,
+            "fa_icon": "fas fa-check-circle"
         }
     }
 }
