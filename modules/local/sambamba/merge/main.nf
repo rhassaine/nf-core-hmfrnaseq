@@ -24,7 +24,7 @@ process SAMBAMBA_MERGE {
     sambamba merge \\
         ${args} \\
         --nthreads ${task.cpus} \\
-        ${meta.sample_id}.bam \\
+        ${meta.id}.bam \\
         ${bams}
 
     cat <<-END_VERSIONS > versions.yml
@@ -35,7 +35,7 @@ process SAMBAMBA_MERGE {
 
     stub:
     """
-    touch ${meta.sample_id}.bam
+    touch ${meta.id}.bam
 
     echo -e '${task.process}:\\n  stub: noversions\\n' > versions.yml
     """
