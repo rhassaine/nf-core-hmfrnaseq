@@ -14,6 +14,11 @@
 
 **nf-core/hmfrnaseq** is a bioinformatics pipeline for RNA-seq analysis integrating WiGiTS tools developed by the Hartwig Medical Foundation. It accepts paired-end Illumina FASTQ files or pre-aligned BAM files as input. The pipeline performs read alignment, quality control (including rRNA contamination checks), and uses Isofox for transcript quantification, alternative splicing detection, and fusion calling. Results are summarised in per-sample and aggregated MultiQC reports.
 
+![nf-core/hmfrnaseq metro map](docs/images/hmfrnaseq_metromap.svg)
+
+<details>
+<summary>Pipeline flowchart (click to expand)</summary>
+
 ```mermaid
 flowchart LR
     subgraph Input
@@ -60,6 +65,8 @@ flowchart LR
     ISOFOX --> MULTIQC
 ```
 
+</details>
+
 1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
 2. Alignment ([`STAR`](https://github.com/alexdobin/STAR))
 3. BAM processing ([`SAMtools`](http://www.htslib.org/), [`Sambamba`](https://lomereiter.github.io/sambamba/))
@@ -102,9 +109,7 @@ nextflow run nf-core/hmfrnaseq \
 
 nf-core/hmfrnaseq was originally written by Rayan Hassaine.
 
-We thank the following people for their extensive assistance in the development of this pipeline:
-
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
+We thank the [Hartwig Medical Foundation](https://www.hartwigmedicalfoundation.nl/) for developing the WiGiTS tools integrated in this pipeline.
 
 ## Contributions and Support
 

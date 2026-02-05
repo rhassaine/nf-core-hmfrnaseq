@@ -105,6 +105,57 @@ SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,bai,/path/to/SAMPLE1.bam.bai
 
 An [example samplesheet](../assets/samplesheet.csv) has been provided with the pipeline.
 
+## Pipeline modes
+
+The pipeline supports different run modes via the `--mode` parameter:
+
+### rna_workflow (default)
+
+Full RNA analysis workflow including all steps:
+
+- FastQC on raw reads
+- STAR alignment → SAMtools Sort → Sambamba Merge → GATK MarkDuplicates
+- RSeQC analysis (bam_stat, read_duplication, split_bam for rRNA check)
+- rRNA QC gate (samples exceeding thresholds skip Isofox)
+- Isofox transcript quantification, alternative splicing, and fusion detection
+- Per-sample and aggregated MultiQC reports
+
+```bash
+nextflow run nf-core/hmfrnaseq --input samplesheet.csv --outdir results --genome GRCh38_hmf -profile docker
+```
+
+### fastqc_workflow
+
+Lightweight mode that runs only FastQC on input FASTQ files. Useful for quick quality assessment before committing to full analysis.
+
+```bash
+nextflow run nf-core/hmfrnaseq --input samplesheet.csv --outdir results --mode fastqc_workflow -profile docker
+```
+
+## Process control
+
+Fine-tune which pipeline stages run using `--processes_include` and `--processes_exclude` (comma-separated):
+
+| Process | Description |
+| ------- | ----------- |
+| `alignment` | STAR alignment, SAMtools sorting, Sambamba merging, MarkDuplicates |
+| `isofox` | Isofox transcript quantification and fusion detection |
+| `rseqc` | RSeQC quality metrics (bam_stat, read_duplication, split_bam) |
+
+### Examples
+
+Run only alignment and RSeQC (skip Isofox):
+
+```bash
+nextflow run nf-core/hmfrnaseq --input samplesheet.csv --outdir results --processes_exclude isofox -profile docker
+```
+
+Run only Isofox on pre-aligned BAMs:
+
+```bash
+nextflow run nf-core/hmfrnaseq --input samplesheet_with_bams.csv --outdir results --processes_include isofox -profile docker
+```
+
 ## Running the pipeline
 
 The typical command for running the pipeline is as follows:
