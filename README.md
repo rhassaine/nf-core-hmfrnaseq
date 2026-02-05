@@ -12,48 +12,87 @@
 
 ## Introduction
 
-**nf-core/hmfrnaseq** is a bioinformatics pipeline that ...
+**nf-core/hmfrnaseq** is a bioinformatics pipeline for RNA-seq analysis integrating WiGiTS tools developed by the Hartwig Medical Foundation. It accepts paired-end Illumina FASTQ files or pre-aligned BAM files as input. The pipeline performs read alignment, quality control (including rRNA contamination checks), and uses Isofox for transcript quantification, alternative splicing detection, and fusion calling. Results are summarised in per-sample and aggregated MultiQC reports.
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+```mermaid
+flowchart LR
+    subgraph Input
+        FASTQ[FASTQ files]
+    end
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/contributing/design_guidelines#examples for examples.   -->
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
+    subgraph QC
+        FASTQC[FastQC]
+    end
+
+    subgraph Alignment
+        STAR[STAR] --> SORT[SAMtools Sort] --> MERGE[Sambamba Merge] --> MARKDUP[MarkDuplicates]
+    end
+
+    subgraph "RNA QC"
+        BAMSTAT[RSeQC BamStat]
+        READDUP[RSeQC ReadDup]
+        SPLITBAM[RSeQC SplitBAM]
+    end
+
+    subgraph "rRNA Gate"
+        GATE{Pass/Fail}
+    end
+
+    subgraph Analysis
+        ISOFOX[Isofox]
+    end
+
+    subgraph Reports
+        MULTIQC[MultiQC]
+    end
+
+    FASTQ --> FASTQC
+    FASTQ --> STAR
+    MARKDUP --> BAMSTAT
+    MARKDUP --> READDUP
+    MARKDUP --> SPLITBAM
+    SPLITBAM --> GATE
+    GATE -->|Pass| ISOFOX
+    BAMSTAT --> MULTIQC
+    READDUP --> MULTIQC
+    SPLITBAM --> MULTIQC
+    FASTQC --> MULTIQC
+    ISOFOX --> MULTIQC
+```
+
+1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
+2. Alignment ([`STAR`](https://github.com/alexdobin/STAR))
+3. BAM processing ([`SAMtools`](http://www.htslib.org/), [`Sambamba`](https://lomereiter.github.io/sambamba/))
+4. Duplicate marking ([`GATK MarkDuplicates`](https://gatk.broadinstitute.org/))
+5. RNA QC metrics ([`RSeQC`](http://rseqc.sourceforge.net/))
+6. rRNA contamination check and filtering
+7. Transcript quantification and fusion detection ([`Isofox`](https://github.com/hartwigmedical/hmftools/tree/master/isofox))
+8. QC report ([`MultiQC`](http://multiqc.info/))
 
 ## Usage
 
 > [!NOTE]
 > If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline) with `-profile test` before running the workflow on actual data.
 
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
-
 First, prepare a samplesheet with your input data that looks as follows:
 
 `samplesheet.csv`:
 
 ```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+group_id,subject_id,sample_id,sample_type,sequence_type,filetype,info,filepath
+SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,fastq,library_id:LIB001;lane:L001,/path/to/R1.fastq.gz;/path/to/R2.fastq.gz
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
-
--->
+Each row represents a pair of FASTQ files for one lane. For samples sequenced across multiple lanes, add one row per lane with the same identifiers.
 
 Now, you can run the pipeline using:
-
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
 
 ```bash
 nextflow run nf-core/hmfrnaseq \
    -profile <docker/singularity/.../institute> \
    --input samplesheet.csv \
-   --outdir <OUTDIR>
+   --outdir <OUTDIR> \
+   --genome GRCh38_hmf
 ```
 
 > [!WARNING]

@@ -4,49 +4,104 @@
 
 ## Introduction
 
-<!-- TODO nf-core: Add documentation about anything specific to running your pipeline. For general topics, please point to (and add to) the main nf-core website. -->
+nf-core/hmfrnaseq is an RNA-seq analysis pipeline integrating WiGiTS tools. The pipeline performs:
+
+1. **Quality Control** - FastQC on raw reads
+2. **Alignment** - STAR alignment with SAMtools sorting and Sambamba merging
+3. **Duplicate Marking** - GATK MarkDuplicates
+4. **RSeQC Analysis** - BAM statistics, read duplication, and rRNA contamination check
+5. **Transcript Quantification** - Isofox for transcript counts, alternative splicing, and fusion detection
+6. **Reporting** - Per-sample and aggregated MultiQC reports
+
+Samples with high rRNA contamination are automatically excluded from Isofox analysis based on configurable thresholds.
+
+```mermaid
+flowchart LR
+    subgraph Input
+        FASTQ[FASTQ files]
+    end
+
+    subgraph QC
+        FASTQC[FastQC]
+    end
+
+    subgraph Alignment
+        STAR[STAR] --> SORT[SAMtools Sort] --> MERGE[Sambamba Merge] --> MARKDUP[MarkDuplicates]
+    end
+
+    subgraph "RNA QC"
+        BAMSTAT[RSeQC BamStat]
+        READDUP[RSeQC ReadDup]
+        SPLITBAM[RSeQC SplitBAM]
+    end
+
+    subgraph "rRNA Gate"
+        GATE{Pass/Fail}
+    end
+
+    subgraph Analysis
+        ISOFOX[Isofox]
+    end
+
+    subgraph Reports
+        MULTIQC[MultiQC]
+    end
+
+    FASTQ --> FASTQC
+    FASTQ --> STAR
+    MARKDUP --> BAMSTAT
+    MARKDUP --> READDUP
+    MARKDUP --> SPLITBAM
+    SPLITBAM --> GATE
+    GATE -->|Pass| ISOFOX
+    BAMSTAT --> MULTIQC
+    READDUP --> MULTIQC
+    SPLITBAM --> MULTIQC
+    FASTQC --> MULTIQC
+    ISOFOX --> MULTIQC
+```
 
 ## Samplesheet input
 
-You will need to create a samplesheet with information about the samples you would like to analyse before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row as shown in the examples below.
+You will need to create a samplesheet with information about the samples you would like to analyse before running the pipeline. Use this parameter to specify its location.
 
 ```bash
 --input '[path to samplesheet file]'
 ```
 
-### Multiple runs of the same sample
+### Samplesheet columns
 
-The `sample` identifiers have to be the same when you have re-sequenced the same sample more than once e.g. to increase sequencing depth. The pipeline will concatenate the raw reads before performing any downstream analysis. Below is an example for the same sample sequenced across 3 lanes:
+| Column | Description | Required |
+| ------ | ----------- | -------- |
+| `group_id` | Unique identifier for grouping samples (used for output directory structure) | Yes |
+| `subject_id` | Subject/patient identifier | Yes |
+| `sample_id` | Sample identifier (e.g., `SAMPLE1_T` for tumor) | Yes |
+| `sample_type` | Sample type: `tumor` | Yes |
+| `sequence_type` | Sequence type: `rna` | Yes |
+| `filetype` | Input file type: `fastq`, `bam`, or `bai` | Yes |
+| `info` | Key:value pairs separated by `;`. Required for FASTQ: `library_id` and `lane` | FASTQ only |
+| `filepath` | Path to input file(s). For paired-end FASTQs, separate R1 and R2 with `;` | Yes |
+
+### FASTQ input example
+
+For samples sequenced across multiple lanes, add one row per lane with the same identifiers. The pipeline will merge lane-level BAMs after alignment.
 
 ```csv title="samplesheet.csv"
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
-CONTROL_REP1,AEG588A1_S1_L003_R1_001.fastq.gz,AEG588A1_S1_L003_R2_001.fastq.gz
-CONTROL_REP1,AEG588A1_S1_L004_R1_001.fastq.gz,AEG588A1_S1_L004_R2_001.fastq.gz
+group_id,subject_id,sample_id,sample_type,sequence_type,filetype,info,filepath
+SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,fastq,library_id:LIB001;lane:L001,/path/to/SAMPLE1_L001_R1.fastq.gz;/path/to/SAMPLE1_L001_R2.fastq.gz
+SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,fastq,library_id:LIB001;lane:L002,/path/to/SAMPLE1_L002_R1.fastq.gz;/path/to/SAMPLE1_L002_R2.fastq.gz
+SAMPLE2,SUBJECT2,SAMPLE2_T,tumor,rna,fastq,library_id:LIB002;lane:L001,/path/to/SAMPLE2_L001_R1.fastq.gz;/path/to/SAMPLE2_L001_R2.fastq.gz
 ```
 
-### Full samplesheet
+### BAM input example
 
-The pipeline will auto-detect whether a sample is single- or paired-end using the information provided in the samplesheet. The samplesheet can have as many columns as you desire, however, there is a strict requirement for the first 3 columns to match those defined in the table below.
-
-A final samplesheet file consisting of both single- and paired-end data may look something like the one below. This is for 6 samples, where `TREATMENT_REP3` has been sequenced twice.
+To skip alignment and start from pre-aligned BAM files (no `info` column needed):
 
 ```csv title="samplesheet.csv"
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
-CONTROL_REP2,AEG588A2_S2_L002_R1_001.fastq.gz,AEG588A2_S2_L002_R2_001.fastq.gz
-CONTROL_REP3,AEG588A3_S3_L002_R1_001.fastq.gz,AEG588A3_S3_L002_R2_001.fastq.gz
-TREATMENT_REP1,AEG588A4_S4_L003_R1_001.fastq.gz,
-TREATMENT_REP2,AEG588A5_S5_L003_R1_001.fastq.gz,
-TREATMENT_REP3,AEG588A6_S6_L003_R1_001.fastq.gz,
-TREATMENT_REP3,AEG588A6_S6_L004_R1_001.fastq.gz,
+group_id,subject_id,sample_id,sample_type,sequence_type,filetype,filepath
+SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,bam,/path/to/SAMPLE1.bam
+SAMPLE1,SUBJECT1,SAMPLE1_T,tumor,rna,bai,/path/to/SAMPLE1.bam.bai
 ```
-
-| Column    | Description                                                                                                                                                                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sample`  | Custom sample name. This entry will be identical for multiple sequencing libraries/runs from the same sample. Spaces in sample names are automatically converted to underscores (`_`). |
-| `fastq_1` | Full path to FastQ file for Illumina short reads 1. File has to be gzipped and have the extension ".fastq.gz" or ".fq.gz".                                                             |
-| `fastq_2` | Full path to FastQ file for Illumina short reads 2. File has to be gzipped and have the extension ".fastq.gz" or ".fq.gz".                                                             |
 
 An [example samplesheet](../assets/samplesheet.csv) has been provided with the pipeline.
 
@@ -55,7 +110,7 @@ An [example samplesheet](../assets/samplesheet.csv) has been provided with the p
 The typical command for running the pipeline is as follows:
 
 ```bash
-nextflow run nf-core/hmfrnaseq --input ./samplesheet.csv --outdir ./results --genome GRCh37 -profile docker
+nextflow run nf-core/hmfrnaseq --input ./samplesheet.csv --outdir ./results --genome GRCh38_hmf -profile docker
 ```
 
 This will launch the pipeline with the `docker` configuration profile. See below for more information about profiles.
@@ -87,7 +142,7 @@ with:
 ```yaml title="params.yaml"
 input: './samplesheet.csv'
 outdir: './results/'
-genome: 'GRCh37'
+genome: 'GRCh38_hmf'
 <...>
 ```
 
