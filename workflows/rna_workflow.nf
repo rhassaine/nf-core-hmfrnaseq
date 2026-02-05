@@ -70,9 +70,10 @@ workflow RNA_WORKFLOW {
 
     // Create channel for BED file input
     // channel: [ meta2, bed ]
+    // Use Channel.value() to create a value channel that can be reused for all samples
     ch_bed = params.rseqc_bed_file
-        ? channel.of([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
-        : channel.empty()
+        ? Channel.value([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
+        : Channel.empty()
 
     // Set up reference data, assign more human readable variables
     PREPARE_REFERENCE(
