@@ -3,13 +3,11 @@ process BAMCHECKER {
     label 'process_medium'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'oras://ghcr.io/rhassaine/bam-tools-non-arm:1.5' :
-        'ghcr.io/rhassaine/bam-tools-non-arm:1.5' }"
-
-    containerOptions { workflow.containerEngine == 'docker' ? '--entrypoint ""' : '' }
+        'oras://ghcr.io/rhassaine/bam-tools-non-arm:1.6' :
+        'ghcr.io/rhassaine/bam-tools-non-arm:1.6' }"
 
     input:
-    tuple val(meta), path(bam)
+    tuple val(meta), path(bam), path(bai)
     path genome_fasta
     path genome_fai
 
