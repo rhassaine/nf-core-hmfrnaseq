@@ -1,6 +1,6 @@
 process BAMCHECKER {
     tag "${meta.id}"
-    label 'process_medium'
+    label 'process_high'
 
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'oras://ghcr.io/rhassaine/bam-tools-non-arm:1.6' :
