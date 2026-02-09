@@ -141,6 +141,20 @@ workflow READ_ALIGNMENT_RNA_REDUX {
         }
         .groupTuple()
 
+    // Also group BAI files in the same way
+    // channel: [ meta_group, [bai, ...] ]
+    ch_bais_united = ch_sample_fastq_counts
+        .cross(
+            SAMTOOLS_FIXMATE_SORT.out.bai.map { meta, bai -> [[key: meta.key], bai] }
+        )
+        .map { count_tuple, bai_tuple ->
+            def group_size = count_tuple[1]
+            def (meta_bai, bai) = bai_tuple
+            def meta_group = [*:meta_bai]
+            return tuple(groupKey(meta_group, group_size), bai)
+        }
+        .groupTuple()
+
     // Sort into merge-eligible BAMs (at least two BAMs required)
     // channel: runnable: [ meta_group, [bam, ...] ]
     // channel: skip: [ meta_group, bam ]
@@ -149,6 +163,15 @@ workflow READ_ALIGNMENT_RNA_REDUX {
             runnable: bams.size() > 1
             skip: true
                 return [meta_group, bams[0]]
+        }
+
+    // Also sort BAIs to match
+    // channel: skip: [ meta_group, bai ]
+    ch_bais_united_sorted = ch_bais_united
+        .branch { meta_group, bais ->
+            runnable: bais.size() > 1
+            skip: true
+                return [meta_group, bais[0]]
         }
 
     // Create process input channel
@@ -176,14 +199,18 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     //
     // MODULE: REDUX duplicate marking
     //
-    // Collect BAMs from merge or single-BAM path
-    // channel: [ meta, bam ]
+    // Collect BAMs and BAIs from merge or single-BAM path
+    // channel: [ meta, bam, bai ]
     ch_bams_for_redux = channel.empty()
         .mix(
-            WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs),
-            WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs),
+            // Merged BAMs - Sambamba merge doesn't produce BAI
+            WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs)
+                .map { meta, bam -> [meta, bam, []] },
+            // Single BAMs already have BAI from SAMTOOLS_FIXMATE_SORT
+            WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs)
+                .join(WorkflowOncoanalyser.restoreMeta(ch_bais_united_sorted.skip, ch_inputs)),
         )
-        .map { meta, bam ->
+        .map { meta, bam, bai ->
             def meta_sample = Utils.getTumorRnaSample(meta)
             def meta_redux = [
                 key: meta.group_id,
@@ -192,8 +219,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
                 subject_id: meta.subject_id,
                 group_id: meta.group_id,
             ]
-            // REDUX expects [bam] list and [bai] list (bai not used in command)
-            return [meta_redux, [bam], []]
+            return [meta_redux, [bam], bai instanceof List ? bai : [bai]]
         }
 
     // Run process
