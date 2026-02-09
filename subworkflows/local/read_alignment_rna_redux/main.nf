@@ -1,16 +1,16 @@
 //
 // Align RNA reads with REDUX duplicate marking
+// Uses samtools fixmate to set MC tags (streaming, memory-efficient)
 //
 
 import Constants
 import Utils
 import WorkflowOncoanalyser
 
-include { BAMCHECKER     } from '../../../modules/local/bamchecker/main'
-include { REDUX          } from '../../../modules/local/redux/main'
-include { SAMBAMBA_MERGE } from '../../../modules/local/sambamba/merge/main'
-include { SAMTOOLS_SORT  } from '../../../modules/nf-core/samtools/sort/main'
-include { STAR_ALIGN     } from '../../../modules/local/star/align/main'
+include { REDUX                  } from '../../../modules/local/redux/main'
+include { SAMBAMBA_MERGE         } from '../../../modules/local/sambamba/merge/main'
+include { SAMTOOLS_FIXMATE_SORT  } from '../../../modules/local/samtools/fixmate_sort/main'
+include { STAR_ALIGN             } from '../../../modules/local/star/align/main'
 
 workflow READ_ALIGNMENT_RNA_REDUX {
     take:
@@ -25,9 +25,6 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     genome_dict       // channel: [mandatory] /path/to/genome.dict
     unmap_regions     // channel: [mandatory] /path/to/unmap_regions.tsv
     msi_jitter_sites  // channel: [mandatory] /path/to/msi_jitter_sites.tsv.gz
-
-    // Options
-    bamchecker_enable // val: [mandatory] whether to run BAMCHECKER before REDUX
 
     main:
     // channel for version.yml files
@@ -89,7 +86,8 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     ch_versions = ch_versions.mix(STAR_ALIGN.out.versions)
 
     //
-    // MODULE: SAMtools sort
+    // MODULE: SAMtools fixmate + sort
+    // Sets MC (mate CIGAR) tag via streaming: name-sort → fixmate → coord-sort
     //
     // Create process input channel
     // channel: [ meta_sort, bam ]
@@ -104,13 +102,11 @@ workflow READ_ALIGNMENT_RNA_REDUX {
         }
 
     // Run process
-    SAMTOOLS_SORT(
+    SAMTOOLS_FIXMATE_SORT(
         ch_sort_inputs,
-        [[],[]],
-        'bai'
     )
 
-    // Note: SAMTOOLS_SORT versions are collected via topics
+    ch_versions = ch_versions.mix(SAMTOOLS_FIXMATE_SORT.out.versions)
 
     //
     // MODULE: Sambamba merge
@@ -130,8 +126,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     // channel: [ meta_group, [bam, ...] ]
     ch_bams_united = ch_sample_fastq_counts
         .cross(
-            // First element to match meta_count above for `cross`
-            SAMTOOLS_SORT.out.bam.map { meta_star, bam -> [[key: meta_star.key], bam] }
+            SAMTOOLS_FIXMATE_SORT.out.bam.map { meta, bam -> [[key: meta.key], bam] }
         )
         .map { count_tuple, bam_tuple ->
 
@@ -146,20 +141,6 @@ workflow READ_ALIGNMENT_RNA_REDUX {
         }
         .groupTuple()
 
-    // Also group BAI files in the same way
-    // channel: [ meta_group, [bai, ...] ]
-    ch_bais_united = ch_sample_fastq_counts
-        .cross(
-            SAMTOOLS_SORT.out.bai.map { meta_star, bai -> [[key: meta_star.key], bai] }
-        )
-        .map { count_tuple, bai_tuple ->
-            def group_size = count_tuple[1]
-            def (meta_bai, bai) = bai_tuple
-            def meta_group = [*:meta_bai]
-            return tuple(groupKey(meta_group, group_size), bai)
-        }
-        .groupTuple()
-
     // Sort into merge-eligible BAMs (at least two BAMs required)
     // channel: runnable: [ meta_group, [bam, ...] ]
     // channel: skip: [ meta_group, bam ]
@@ -168,15 +149,6 @@ workflow READ_ALIGNMENT_RNA_REDUX {
             runnable: bams.size() > 1
             skip: true
                 return [meta_group, bams[0]]
-        }
-
-    // Also sort BAIs to match
-    // channel: skip: [ meta_group, bai ]
-    ch_bais_united_sorted = ch_bais_united
-        .branch { meta_group, bais ->
-            runnable: bais.size() > 1
-            skip: true
-                return [meta_group, bais[0]]
         }
 
     // Create process input channel
@@ -202,63 +174,31 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     ch_versions = ch_versions.mix(SAMBAMBA_MERGE.out.versions)
 
     //
-    // MODULE: BAMCHECKER (optional) - validate BAM before REDUX
+    // MODULE: REDUX duplicate marking
     //
-    // Collect BAMs and BAIs from merge or single-BAM path
-    // channel: [ meta, bam, bai ]
-    ch_bams_for_checking = channel.empty()
+    // Collect BAMs from merge or single-BAM path
+    // channel: [ meta, bam ]
+    ch_bams_for_redux = channel.empty()
         .mix(
-            // Merged BAMs need indexing - Sambamba merge doesn't produce BAI
-            WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs)
-                .map { meta, bam -> [meta, bam, []] },
-            // Single BAMs already have BAI from SAMTOOLS_SORT
-            WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs)
-                .join(WorkflowOncoanalyser.restoreMeta(ch_bais_united_sorted.skip, ch_inputs)),
+            WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs),
+            WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs),
         )
-        .map { meta, bam, bai ->
+        .map { meta, bam ->
             def meta_sample = Utils.getTumorRnaSample(meta)
-            def meta_bam = [
+            def meta_redux = [
                 key: meta.group_id,
                 id: "${meta.group_id}_${meta_sample.sample_id}",
                 sample_id: Utils.getTumorRnaSampleName(meta),
                 subject_id: meta.subject_id,
                 group_id: meta.group_id,
             ]
-            return [meta_bam, bam, bai]
-        }
-
-    // Run BAMCHECKER if enabled
-    ch_bams_for_redux = channel.empty()
-    if (bamchecker_enable) {
-        BAMCHECKER(
-            ch_bams_for_checking,
-            genome_fasta,
-            genome_fai,
-        )
-
-        ch_versions = ch_versions.mix(BAMCHECKER.out.versions)
-
-        // Use checked BAMs for REDUX
-        ch_bams_for_redux = BAMCHECKER.out.bam
-    } else {
-        // Skip BAMCHECKER, pass BAMs directly to REDUX (drop BAI, REDUX doesn't need it)
-        ch_bams_for_redux = ch_bams_for_checking.map { meta, bam, bai -> [meta, bam] }
-    }
-
-    //
-    // MODULE: REDUX duplicate marking
-    //
-    // Create process input channel
-    // channel: [ meta_redux, [bam], [] ]
-    ch_redux_inputs = ch_bams_for_redux
-        .map { meta, bam ->
             // REDUX expects [bam] list and [bai] list (bai not used in command)
-            return [meta, [bam], []]
+            return [meta_redux, [bam], []]
         }
 
     // Run process
     REDUX(
-        ch_redux_inputs,
+        ch_bams_for_redux,
         genome_fasta,
         genome_ver,
         genome_fai,
