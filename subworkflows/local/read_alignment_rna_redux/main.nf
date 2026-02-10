@@ -228,6 +228,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
         }
 
     // Run BAMCHECKER if enabled
+    // channel: [ meta, bam, bai ]
     ch_bams_for_redux = channel.empty()
     if (bamchecker_enable) {
         BAMCHECKER(
@@ -238,22 +239,22 @@ workflow READ_ALIGNMENT_RNA_REDUX {
 
         ch_versions = ch_versions.mix(BAMCHECKER.out.versions)
 
-        // Use checked BAMs for REDUX
+        // Use checked BAMs + BAIs for REDUX
         ch_bams_for_redux = BAMCHECKER.out.bam
+            .join(BAMCHECKER.out.bai)
     } else {
-        // Skip BAMCHECKER, pass BAMs directly to REDUX (drop BAI, REDUX doesn't need it)
-        ch_bams_for_redux = ch_bams_for_checking.map { meta, bam, bai -> [meta, bam] }
+        // Skip BAMCHECKER, pass BAMs + BAIs directly to REDUX
+        ch_bams_for_redux = ch_bams_for_checking
     }
 
     //
     // MODULE: REDUX duplicate marking
     //
     // Create process input channel
-    // channel: [ meta_redux, [bam], [] ]
+    // channel: [ meta_redux, [bam], [bai] ]
     ch_redux_inputs = ch_bams_for_redux
-        .map { meta, bam ->
-            // REDUX expects [bam] list and [bai] list (bai not used in command)
-            return [meta, [bam], []]
+        .map { meta, bam, bai ->
+            return [meta, [bam], bai instanceof List ? bai : [bai]]
         }
 
     // Run process
