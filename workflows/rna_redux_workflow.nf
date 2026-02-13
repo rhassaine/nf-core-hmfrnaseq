@@ -123,6 +123,7 @@ workflow RNA_REDUX_WORKFLOW {
             ref_data.genome_dict,
             hmf_data.unmap_regions,
             hmf_data.msi_jitter_sites,
+            hmf_data.sortmerna_db,
         )
 
         ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA_REDUX.out.versions)

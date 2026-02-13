@@ -120,6 +120,7 @@ workflow RNA_WORKFLOW {
         READ_ALIGNMENT_RNA(
             ch_inputs,
             ref_data.genome_star_index,
+            hmf_data.sortmerna_db,
         )
 
         ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)

@@ -10,6 +10,7 @@ import WorkflowOncoanalyser
 include { REDUX                  } from '../../../modules/local/redux/main'
 include { SAMBAMBA_MERGE         } from '../../../modules/local/sambamba/merge/main'
 include { SAMTOOLS_FIXMATE_SORT  } from '../../../modules/local/samtools/fixmate_sort/main'
+include { SORTMERNA              } from '../../../modules/nf-core/sortmerna/main'
 include { STAR_ALIGN             } from '../../../modules/local/star/align/main'
 
 workflow READ_ALIGNMENT_RNA_REDUX {
@@ -25,6 +26,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     genome_dict       // channel: [mandatory] /path/to/genome.dict
     unmap_regions     // channel: [mandatory] /path/to/unmap_regions.tsv
     msi_jitter_sites  // channel: [mandatory] /path/to/msi_jitter_sites.tsv.gz
+    sortmerna_db      // channel: [mandatory] /path/to/sortmerna_rRNA_db.fasta
 
     main:
     // channel for version.yml files
@@ -63,11 +65,29 @@ workflow READ_ALIGNMENT_RNA_REDUX {
         }
 
     //
+    // MODULE: SortMeRNA rRNA filtering (pre-alignment)
+    //
+    // nf-core sortmerna module expects [meta, [R1, R2]]
+    ch_sortmerna_in = ch_fastq_inputs.map { meta, fwd, rev -> [meta, [fwd, rev]] }
+    ch_sortmerna_fastas = channel.of([[:], sortmerna_db])
+
+    SORTMERNA(ch_sortmerna_in, ch_sortmerna_fastas, [[:], []])
+
+    // Note: SORTMERNA versions are collected via topics
+
+    // Split output back to [meta, R1, R2] for STAR
+    ch_reads_for_star = SORTMERNA.out.reads
+        .map { meta, reads ->
+            def (fwd, rev) = reads.sort()
+            [meta, fwd, rev]
+        }
+
+    //
     // MODULE: STAR alignment
     //
     // Create process input channel
     // channel: [ meta_star, fastq_fwd, fastq_rev ]
-    ch_star_inputs = ch_fastq_inputs
+    ch_star_inputs = ch_reads_for_star
         .map { meta_fastq, fastq_fwd, fastq_rev ->
             def meta_star = [
                 *:meta_fastq,
