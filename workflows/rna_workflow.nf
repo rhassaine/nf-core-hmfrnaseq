@@ -43,6 +43,7 @@ include { ISOFOX_QUANTIFICATION } from '../subworkflows/local/isofox_quantificat
 include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
 include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
+include { SORTMERNA_FILTER      } from '../subworkflows/local/sortmerna_filter'
 
 include { MULTIQC                            } from '../modules/local/multiqc/main'
 include { MULTIQC as MULTIQC_AGGREGATED     } from '../modules/local/multiqc/main'
@@ -114,19 +115,27 @@ workflow RNA_WORKFLOW {
 
     ch_align_rna_tumor_out = channel.empty()
     ch_markdups_metrics = channel.empty()
+    ch_sortmerna_log = channel.empty()
 
     if (run_config.stages.alignment) {
 
+        SORTMERNA_FILTER(
+            ch_inputs,
+            hmf_data.sortmerna_db,
+        )
+
         READ_ALIGNMENT_RNA(
             ch_inputs,
+            SORTMERNA_FILTER.out.reads,
             ref_data.genome_star_index,
-            hmf_data.sortmerna_db,
         )
 
         ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
         ch_markdups_metrics = ch_markdups_metrics.mix(READ_ALIGNMENT_RNA.out.markdups_metrics)
+
+        ch_sortmerna_log = SORTMERNA_FILTER.out.log
 
     } else {
 
@@ -191,14 +200,61 @@ workflow RNA_WORKFLOW {
                 return meta
         }
 
-    // Join passing samples with their BAM data for Isofox
-    // If RSeQC is disabled, all samples pass through
-    ch_samples_for_isofox = run_config.stages.rseqc
-        ? ch_bam_split.isofox
+    //
+    // TASK: SortMeRNA QC gate - parse logs and branch samples
+    //
+    // Aggregate SortMeRNA stats per sample (one log per lane) and branch pass/fail
+    ch_sortmerna_qc_result = ch_sortmerna_log
+        .map { meta, log_file ->
+            def stats = Utils.parseSortmernaLog(log_file)
+            [meta.key, stats.total_reads, stats.rrna_reads]
+        }
+        .groupTuple()
+        .map { key, total_list, rrna_list ->
+            def total = total_list.sum()
+            def rrna = rrna_list.sum()
+            def pct = total > 0 ? (rrna / (double)total) * 100.0 : 0.0
+            [key, [total_reads: total, rrna_reads: rrna, rrna_percent: pct]]
+        }
+
+    ch_sortmerna_qc = ch_inputs
+        .map { meta -> [meta.group_id, meta] }
+        .join(ch_sortmerna_qc_result)
+        .map { group_id, meta, rrna_stats ->
+            def qc_result = Utils.checkRrnaQc(
+                rrna_stats,
+                params.sortmerna_threshold_count ?: 0,
+                params.sortmerna_threshold_percent ?: 0
+            )
+            log.info "SortMeRNA QC [${meta.group_id}]: ${rrna_stats.rrna_reads}/${rrna_stats.total_reads} reads (${String.format('%.2f', rrna_stats.rrna_percent)}%) - ${qc_result.pass ? 'PASS' : 'FAIL'}"
+            if (!qc_result.pass) {
+                log.warn "Sample ${meta.group_id} FAILED SortMeRNA QC: ${qc_result.fail_reason}"
+            }
+            [meta, qc_result.pass, rrna_stats]
+        }
+        .branch { meta, pass, rrna_stats ->
+            pass: pass
+                return meta
+            fail: true
+                return meta
+        }
+
+    // Samples must pass both SortMeRNA gate (if alignment ran) AND RSeQC gate (if RSeQC ran)
+    ch_samples_for_isofox = ch_bam_split.isofox
+
+    if (run_config.stages.alignment) {
+        ch_samples_for_isofox = ch_samples_for_isofox
+            .map { meta, bam, bai -> [meta.group_id, meta, bam, bai] }
+            .join(ch_sortmerna_qc.pass.map { meta -> [meta.group_id, meta] }, by: 0)
+            .map { group_id, meta_bam, bam, bai, meta_qc -> [meta_bam, bam, bai] }
+    }
+
+    if (run_config.stages.rseqc) {
+        ch_samples_for_isofox = ch_samples_for_isofox
             .map { meta, bam, bai -> [meta.group_id, meta, bam, bai] }
             .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id, meta] }, by: 0)
             .map { group_id, meta_bam, bam, bai, meta_qc -> [meta_bam, bam, bai] }
-        : ch_bam_split.isofox
+    }
 
     //
     // MODULE: Run Isofox to analyse RNA data
@@ -210,13 +266,22 @@ workflow RNA_WORKFLOW {
         isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
         isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
 
-        // Get inputs for samples that passed rRNA QC
-        ch_inputs_for_isofox = run_config.stages.rseqc
-            ? ch_inputs
+        // Get inputs for samples that passed rRNA QC (both gates)
+        ch_inputs_for_isofox = ch_inputs
+
+        if (run_config.stages.alignment) {
+            ch_inputs_for_isofox = ch_inputs_for_isofox
+                .map { meta -> [meta.group_id, meta] }
+                .join(ch_sortmerna_qc.pass.map { meta -> [meta.group_id] }, by: 0)
+                .map { group_id, meta -> meta }
+        }
+
+        if (run_config.stages.rseqc) {
+            ch_inputs_for_isofox = ch_inputs_for_isofox
                 .map { meta -> [meta.group_id, meta] }
                 .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id] }, by: 0)
                 .map { group_id, meta -> meta }
-            : ch_inputs
+        }
 
         ISOFOX_QUANTIFICATION(
             ch_inputs_for_isofox,
@@ -253,6 +318,7 @@ workflow RNA_WORKFLOW {
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
             .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .mix(ch_markdups_metrics.map { meta, files -> [meta.group_id ?: meta.key, files] })
+            .mix(ch_sortmerna_log.map { meta, log_file -> [meta.key, log_file] })
             .filter { group_id, files -> files }
             .groupTuple(by: 0)
             .map { group_id, file_lists ->
@@ -275,6 +341,7 @@ workflow RNA_WORKFLOW {
         ch_multiqc_aggregated = channel.empty()
             .mix(ch_rseqc_out.map { meta, files -> files })
             .mix(ch_markdups_metrics.map { meta, files -> files })
+            .mix(ch_sortmerna_log.map { meta, log_file -> log_file })
             .flatten()
             .filter { it }
             .collect()

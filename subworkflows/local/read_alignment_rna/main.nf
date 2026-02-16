@@ -9,17 +9,16 @@ import WorkflowOncoanalyser
 include { GATK4_MARKDUPLICATES } from '../../../modules/nf-core/gatk4/markduplicates/main'
 include { SAMBAMBA_MERGE       } from '../../../modules/local/sambamba/merge/main'
 include { SAMTOOLS_SORT        } from '../../../modules/nf-core/samtools/sort/main'
-include { SORTMERNA             } from '../../../modules/nf-core/sortmerna/main'
 include { STAR_ALIGN           } from '../../../modules/local/star/align/main'
 
 workflow READ_ALIGNMENT_RNA {
     take:
     // Sample data
     ch_inputs         // channel: [mandatory] [ meta ]
+    ch_fastq_inputs   // channel: [mandatory] [ meta_fastq, fwd, rev ] (from SORTMERNA_FILTER)
 
     // Reference data
     genome_star_index // channel: [mandatory] /path/to/genome_star_index/
-    sortmerna_db      // channel: [mandatory] /path/to/sortmerna_rRNA_db.fasta
 
     main:
     // channel for version.yml files
@@ -35,52 +34,12 @@ workflow READ_ALIGNMENT_RNA {
             skip: true
         }
 
-    // Create FASTQ input channel
-    // channel: [ meta_fastq, fastq_fwd, fastq_rev ]
-    ch_fastq_inputs = ch_inputs_sorted.runnable
-        .flatMap { meta ->
-            def meta_sample = Utils.getTumorRnaSample(meta)
-            meta_sample
-                .getAt(Constants.FileType.FASTQ)
-                .collect { key, fps ->
-                    def (library_id, lane) = key
-
-                    def meta_fastq = [
-                        key: meta.group_id,
-                        id: "${meta.group_id}_${meta_sample.sample_id}",
-                        sample_id: meta_sample.sample_id,
-                        library_id: library_id,
-                        lane: lane,
-                    ]
-
-                    return [meta_fastq, fps['fwd'], fps['rev']]
-                }
-        }
-
-    //
-    // MODULE: SortMeRNA rRNA filtering (pre-alignment)
-    //
-    // nf-core sortmerna module expects [meta, [R1, R2]]
-    ch_sortmerna_in = ch_fastq_inputs.map { meta, fwd, rev -> [meta, [fwd, rev]] }
-    ch_sortmerna_fastas = channel.of([[:], sortmerna_db])
-
-    SORTMERNA(ch_sortmerna_in, ch_sortmerna_fastas, [[:], []])
-
-    // Note: SORTMERNA versions are collected via topics
-
-    // Split output back to [meta, R1, R2] for STAR
-    ch_reads_for_star = SORTMERNA.out.reads
-        .map { meta, reads ->
-            def (fwd, rev) = reads.sort()
-            [meta, fwd, rev]
-        }
-
     //
     // MODULE: STAR alignment
     //
     // Create process input channel
     // channel: [ meta_star, fastq_fwd, fastq_rev ]
-    ch_star_inputs = ch_reads_for_star
+    ch_star_inputs = ch_fastq_inputs
         .map { meta_fastq, fastq_fwd, fastq_rev ->
             def meta_star = [
                 *:meta_fastq,

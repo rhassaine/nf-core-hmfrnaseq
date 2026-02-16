@@ -389,6 +389,41 @@ class Utils {
         ]
     }
 
+    // Parse SortMeRNA log file for rRNA statistics
+    // SortMeRNA log format:
+    //   Total reads = 685822342
+    //   Total reads passing E-value threshold = 277143000 (40.42%)
+    // Returns same shape as parseRrnaStats so checkRrnaQc can be reused
+    public static parseSortmernaLog(log_file) {
+        def total_reads = 0L
+        def rrna_reads = 0L
+
+        try {
+            log_file.eachLine { line ->
+                def trimmed = line.trim()
+                if (trimmed.startsWith('Total reads =')) {
+                    def value = trimmed.replaceFirst(/^Total reads =\s*/, '')
+                    total_reads = value.isLong() ? value.toLong() : 0L
+                }
+                else if (trimmed.startsWith('Total reads passing E-value threshold')) {
+                    def m = (trimmed =~ /=\s*(\d+)/)
+                    if (m) rrna_reads = m[0][1].toLong()
+                }
+            }
+        } catch (Exception e) {
+            total_reads = 0L
+            rrna_reads = 0L
+        }
+
+        def rrna_percent = total_reads > 0 ? (rrna_reads / total_reads) * 100.0 : 0.0
+
+        return [
+            total_reads: total_reads,
+            rrna_reads: rrna_reads,
+            rrna_percent: rrna_percent
+        ]
+    }
+
     // Check if sample passes rRNA QC thresholds
     public static checkRrnaQc(rrna_stats, threshold_count, threshold_percent) {
         def pass = true
