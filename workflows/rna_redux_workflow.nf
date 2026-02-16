@@ -118,7 +118,7 @@ workflow RNA_REDUX_WORKFLOW {
 
         SORTMERNA_FILTER(
             ch_inputs,
-            hmf_data.sortmerna_db,
+            ref_data.sortmerna_db,
         )
 
         READ_ALIGNMENT_RNA_REDUX(

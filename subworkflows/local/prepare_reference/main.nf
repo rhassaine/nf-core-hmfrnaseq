@@ -9,6 +9,7 @@ include { SAMTOOLS_FAIDX        } from '../../../modules/nf-core/samtools/faidx/
 include { STAR_GENOMEGENERATE   } from '../../../modules/nf-core/star/genomegenerate/main'
 
 include { CUSTOM_EXTRACTTARBALL as DECOMP_HMF_DATA         } from '../../../modules/local/custom/extract_tarball/main'
+include { CUSTOM_EXTRACTTARBALL as DECOMP_SORTMERNA_DB     } from '../../../modules/local/custom/extract_tarball/main'
 include { CUSTOM_EXTRACTTARBALL as DECOMP_STAR_INDEX       } from '../../../modules/local/custom/extract_tarball/main'
 
 workflow PREPARE_REFERENCE {
@@ -73,6 +74,28 @@ workflow PREPARE_REFERENCE {
     }
 
     //
+    // Set SortMeRNA rRNA database, unpack if required
+    //
+    ch_sortmerna_db = channel.empty()
+    if (params.sortmerna_fastas && run_config.has_rna_fastq && run_config.stages.alignment) {
+        if (params.sortmerna_fastas.endsWith('.tar.gz')) {
+
+            ch_sortmerna_db_inputs = channel.fromPath(params.sortmerna_fastas)
+                .map { [[id: 'sortmerna_db'], it] }
+
+            DECOMP_SORTMERNA_DB(ch_sortmerna_db_inputs)
+
+            ch_sortmerna_db = DECOMP_SORTMERNA_DB.out.extracted_dir
+                .map { dir -> file("${dir}/smr_v4.3_default_db.fasta") }
+
+        } else {
+
+            ch_sortmerna_db = channel.fromPath(params.sortmerna_fastas)
+
+        }
+    }
+
+    //
     // Set HMF reference data, unpack if required
     //
     ch_hmf_data = channel.empty()
@@ -106,6 +129,7 @@ workflow PREPARE_REFERENCE {
     genome_version       = ch_genome_version               // val:  genome_version
 
     hmf_data             = ch_hmf_data                     // map:  HMF data paths
+    sortmerna_db         = ch_sortmerna_db                 // path: sortmerna rRNA database fasta
 
     versions             = ch_versions                     // channel: [ versions.yml ]
 }

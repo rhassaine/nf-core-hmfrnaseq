@@ -16,12 +16,12 @@ process CUSTOM_EXTRACTTARBALL {
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: ''
+    def args = task.ext.args != null ? task.ext.args : '--strip-components 1'
 
     """
     mkdir -p ${meta.id}/
 
-    tar ${args} -xzvf ${tarball} --strip-components 1 -C ${meta.id}/
+    tar ${args} -xzvf ${tarball} -C ${meta.id}/
     """
 
     stub:

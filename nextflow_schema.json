@@ -126,6 +126,12 @@
                     "fa_icon": "fas fa-percent",
                     "help_text": "Samples with rRNA percentage exceeding this threshold will be excluded from downstream analysis (Isofox). Set to 0 to disable percentage-based filtering. Example: 5.0 means 5% maximum."
                 },
+                "sortmerna_fastas": {
+                    "type": "string",
+                    "description": "Path or URL to SortMeRNA rRNA database FASTA (or .tar.gz containing it).",
+                    "fa_icon": "fas fa-database",
+                    "help_text": "SortMeRNA rRNA reference database used for pre-alignment rRNA filtering. Accepts a local FASTA path, a URL to a FASTA, or a URL to a tar.gz archive (default: SortMeRNA v4.3.4 database from GitHub)."
+                },
                 "sortmerna_threshold_count": {
                     "type": "integer",
                     "description": "Maximum allowed rRNA read count from SortMeRNA before sample fails QC (0 = disabled).",
