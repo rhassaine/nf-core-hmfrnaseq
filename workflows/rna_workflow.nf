@@ -135,7 +135,7 @@ workflow RNA_WORKFLOW {
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
         ch_markdups_metrics = ch_markdups_metrics.mix(READ_ALIGNMENT_RNA.out.markdups_metrics)
 
-        ch_sortmerna_log = SORTMERNA_FILTER.out.log
+        ch_sortmerna_log = SORTMERNA_FILTER.out.sort_log
 
     } else {
 

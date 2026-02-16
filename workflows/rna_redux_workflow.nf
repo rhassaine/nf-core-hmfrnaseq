@@ -137,7 +137,7 @@ workflow RNA_REDUX_WORKFLOW {
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA_REDUX.out.rna_tumor)
 
-        ch_sortmerna_log = SORTMERNA_FILTER.out.log
+        ch_sortmerna_log = SORTMERNA_FILTER.out.sort_log
 
     } else {
 

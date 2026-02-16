@@ -54,6 +54,6 @@ workflow SORTMERNA_FILTER {
         }
 
     emit:
-    reads = ch_reads_filtered  // channel: [ meta_fastq, fwd, rev ]
-    log   = SORTMERNA.out.log  // channel: [ meta, log_file ]
+    reads    = ch_reads_filtered  // channel: [ meta_fastq, fwd, rev ]
+    sort_log = SORTMERNA.out.log  // channel: [ meta, log_file ]
 }
