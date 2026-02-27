@@ -21,8 +21,8 @@ process REDUX {
     output:
     tuple val(meta), path('*.redux.bam'), path('*.redux.bam.bai'), emit: bam
     tuple val(meta), path('*.duplicate_freq.tsv')                , emit: dup_freq_tsv
-    tuple val(meta), path('*.jitter_params.tsv')                 , emit: jitter_tsv
-    tuple val(meta), path('*.ms_table.tsv.gz')                   , emit: ms_tsv
+    tuple val(meta), path('*.jitter_params.tsv')                 , emit: jitter_tsv, optional: true
+    tuple val(meta), path('*.ms_table.tsv.gz')                   , emit: ms_tsv, optional: true
     path 'versions.yml'                                          , emit: versions
     path '.command.*'                                            , emit: command_files
 
@@ -35,6 +35,7 @@ process REDUX {
     def xmx_mod = task.ext.xmx_mod ?: 0.95
 
     def log_level_arg = task.ext.log_level ? "-log_level ${task.ext.log_level}" : ''
+    def msi_jitter_arg = msi_jitter_sites ? "-ref_genome_msi_file ${msi_jitter_sites}" : ''
 
     def form_consensus_arg = umi_enable ? '' : '-form_consensus'
 
@@ -54,7 +55,7 @@ process REDUX {
         -output_bam ./${meta.sample_id}.redux.bam \\
         -ref_genome ${genome_fasta} \\
         -ref_genome_version ${genome_ver} \\
-        -ref_genome_msi_file ${msi_jitter_sites} \\
+        ${msi_jitter_arg} \\
         -unmap_regions ${unmap_regions} \\
         -bamtool \$(which samtools) \\
         -write_stats \\

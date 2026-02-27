@@ -25,7 +25,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     genome_fai        // channel: [mandatory] /path/to/genome.fa.fai
     genome_dict       // channel: [mandatory] /path/to/genome.dict
     unmap_regions     // channel: [mandatory] /path/to/unmap_regions.tsv
-    msi_jitter_sites  // channel: [mandatory] /path/to/msi_jitter_sites.tsv.gz
+    msi_jitter_sites  // channel: [optional] /path/to/msi_jitter_sites.tsv.gz ([] to skip jitter analysis)
 
     main:
     // channel for version.yml files
