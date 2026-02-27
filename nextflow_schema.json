@@ -132,17 +132,12 @@
                     "fa_icon": "fas fa-database",
                     "help_text": "SortMeRNA rRNA reference database used for pre-alignment rRNA filtering. Accepts a local FASTA path, a URL to a FASTA, or a URL to a tar.gz archive (default: SortMeRNA v4.3.4 database from GitHub)."
                 },
-                "sortmerna_threshold_count": {
-                    "type": "integer",
-                    "description": "Maximum allowed rRNA read count from SortMeRNA before sample fails QC (0 = disabled).",
-                    "fa_icon": "fas fa-ban",
-                    "help_text": "Pre-alignment rRNA QC gate. Samples with rRNA read counts (as reported by SortMeRNA) exceeding this threshold will be excluded from downstream analysis (Isofox). Set to 0 to disable count-based filtering."
-                },
-                "sortmerna_threshold_percent": {
-                    "type": "number",
-                    "description": "Maximum allowed rRNA percentage from SortMeRNA before sample fails QC (0 = disabled).",
-                    "fa_icon": "fas fa-percent",
-                    "help_text": "Pre-alignment rRNA QC gate. Samples with rRNA percentage (as reported by SortMeRNA) exceeding this threshold will be excluded from downstream analysis (Isofox). Set to 0 to disable percentage-based filtering."
+                "skip_sortmerna": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip SortMeRNA pre-alignment rRNA filtering.",
+                    "fa_icon": "fas fa-forward",
+                    "help_text": "When enabled, raw FASTQs are passed directly to STAR alignment without rRNA filtering. Useful for comparison runs or when SortMeRNA is not needed."
                 }
             }
         },

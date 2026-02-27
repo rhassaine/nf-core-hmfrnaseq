@@ -201,9 +201,11 @@ workflow RNA_WORKFLOW {
         }
 
     //
-    // TASK: SortMeRNA QC gate - parse logs and branch samples
+    // TASK: SortMeRNA QC stats - informational logging only
     //
-    // Aggregate SortMeRNA stats per sample (one log per lane) and branch pass/fail
+    // Aggregate SortMeRNA stats per sample (one log per lane) for logging and MultiQC
+    // SortMeRNA removes rRNA before alignment, so these stats reflect raw contamination levels.
+    // The RSeQC gate checks the actual post-alignment BAM, which is what matters for Isofox.
     ch_sortmerna_qc_result = ch_sortmerna_log
         .map { meta, log_file ->
             def stats = Utils.parseSortmernaLog(log_file)
@@ -217,37 +219,15 @@ workflow RNA_WORKFLOW {
             [key, [total_reads: total, rrna_reads: rrna, rrna_percent: pct]]
         }
 
-    ch_sortmerna_qc = ch_inputs
+    ch_inputs
         .map { meta -> [meta.group_id, meta] }
         .join(ch_sortmerna_qc_result)
         .map { group_id, meta, rrna_stats ->
-            def qc_result = Utils.checkRrnaQc(
-                rrna_stats,
-                params.sortmerna_threshold_count ?: 0,
-                params.sortmerna_threshold_percent ?: 0
-            )
-            log.info "SortMeRNA QC [${meta.group_id}]: ${rrna_stats.rrna_reads}/${rrna_stats.total_reads} reads (${String.format('%.2f', rrna_stats.rrna_percent)}%) - ${qc_result.pass ? 'PASS' : 'FAIL'}"
-            if (!qc_result.pass) {
-                log.warn "Sample ${meta.group_id} FAILED SortMeRNA QC: ${qc_result.fail_reason}"
-            }
-            [meta, qc_result.pass, rrna_stats]
-        }
-        .branch { meta, pass, rrna_stats ->
-            pass: pass
-                return meta
-            fail: true
-                return meta
+            log.info "SortMeRNA [${meta.group_id}]: ${rrna_stats.rrna_reads}/${rrna_stats.total_reads} rRNA reads removed (${String.format('%.2f', rrna_stats.rrna_percent)}%)"
         }
 
-    // Samples must pass both SortMeRNA gate (if alignment ran) AND RSeQC gate (if RSeQC ran)
+    // Samples must pass RSeQC rRNA gate (if RSeQC ran) to proceed to Isofox
     ch_samples_for_isofox = ch_bam_split.isofox
-
-    if (run_config.stages.alignment) {
-        ch_samples_for_isofox = ch_samples_for_isofox
-            .map { meta, bam, bai -> [meta.group_id, meta, bam, bai] }
-            .join(ch_sortmerna_qc.pass.map { meta -> [meta.group_id, meta] }, by: 0)
-            .map { group_id, meta_bam, bam, bai, meta_qc -> [meta_bam, bam, bai] }
-    }
 
     if (run_config.stages.rseqc) {
         ch_samples_for_isofox = ch_samples_for_isofox
@@ -266,15 +246,8 @@ workflow RNA_WORKFLOW {
         isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
         isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
 
-        // Get inputs for samples that passed rRNA QC (both gates)
+        // Get inputs for samples that passed rRNA QC (RSeQC gate)
         ch_inputs_for_isofox = ch_inputs
-
-        if (run_config.stages.alignment) {
-            ch_inputs_for_isofox = ch_inputs_for_isofox
-                .map { meta -> [meta.group_id, meta] }
-                .join(ch_sortmerna_qc.pass.map { meta -> [meta.group_id] }, by: 0)
-                .map { group_id, meta -> meta }
-        }
 
         if (run_config.stages.rseqc) {
             ch_inputs_for_isofox = ch_inputs_for_isofox
