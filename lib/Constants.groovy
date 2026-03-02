@@ -27,6 +27,8 @@ class Constants {
         // Generic
         BAM,
         BAI,
+        CRAM,
+        CRAI,
         FASTQ,
         // Process outputs
         ISOFOX_DIR,
@@ -60,6 +62,19 @@ class Constants {
 
         BAI_RNA_TUMOR: [
             FileType.BAI,
+            SampleType.TUMOR,
+            SequenceType.RNA,
+        ],
+
+        // RNA CRAMs
+        CRAM_RNA_TUMOR: [
+            FileType.CRAM,
+            SampleType.TUMOR,
+            SequenceType.RNA,
+        ],
+
+        CRAI_RNA_TUMOR: [
+            FileType.CRAI,
             SampleType.TUMOR,
             SequenceType.RNA,
         ],

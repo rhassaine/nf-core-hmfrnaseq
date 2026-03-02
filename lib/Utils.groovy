@@ -140,6 +140,9 @@ class Utils {
                         if (key === Constants.FileType.BAM) {
                             index_enum = Constants.FileType.BAI
                             index_str = 'bai'
+                        } else if (key === Constants.FileType.CRAM) {
+                            index_enum = Constants.FileType.CRAI
+                            index_str = 'crai'
                         } else {
                             return
                         }
@@ -221,19 +224,14 @@ class Utils {
                 def (sample_type, sequence_type) = key
 
                 if (!meta[key].containsKey(Constants.FileType.BAM) &&
+                    !meta[key].containsKey(Constants.FileType.CRAM) &&
                     !meta[key].containsKey(Constants.FileType.FASTQ)) {
 
-                    log.error "no BAMs nor FASTQs provided for ${meta.group_id} ${sample_type}/${sequence_type}\n\n" +
-                        "NB: BAMs or FASTQs are always required as they are the basis to determine input sample type."
+                    log.error "no BAMs, CRAMs, nor FASTQs provided for ${meta.group_id} ${sample_type}/${sequence_type}\n\n" +
+                        "NB: BAMs/CRAMs or FASTQs are always required as they are the basis to determine input sample type."
                     Nextflow.exit(1)
                 }
 
-            }
-
-            // Do not allow CRAM RNA input
-            if (Utils.hasTumorRnaBam(meta) && Utils.getTumorRnaBam(meta).toString().endsWith('cram')) {
-                log.error "found tumor RNA CRAM input for ${meta.group_id} but RNA CRAM input is not supported"
-                Nextflow.exit(1)
             }
 
         }
@@ -305,6 +303,15 @@ class Utils {
         return getTumorRnaSample(meta).getOrDefault(Constants.FileType.BAI, null)
     }
 
+    // Files - Tumor RNA CRAM
+    static public getTumorRnaCram(meta) {
+        return getTumorRnaSample(meta).getOrDefault(Constants.FileType.CRAM, null)
+    }
+
+    static public getTumorRnaCrai(meta) {
+        return getTumorRnaSample(meta).getOrDefault(Constants.FileType.CRAI, null)
+    }
+
 
     static public hasTumorRnaFastq(meta) {
         return getTumorRnaFastq(meta) !== null
@@ -314,10 +321,23 @@ class Utils {
         return getTumorRnaBam(meta) !== null
     }
 
+    static public hasTumorRnaCram(meta) {
+        return getTumorRnaCram(meta) !== null
+    }
+
 
     // Status
     static public hasTumorRna(meta) {
-        return hasTumorRnaBam(meta) || hasTumorRnaFastq(meta)
+        return hasTumorRnaBam(meta) || hasTumorRnaCram(meta) || hasTumorRnaFastq(meta)
+    }
+
+    // Get the alignment file (BAM or CRAM) for tumor RNA
+    static public getTumorRnaAlignment(meta) {
+        return hasTumorRnaBam(meta) ? getTumorRnaBam(meta) : getTumorRnaCram(meta)
+    }
+
+    static public getTumorRnaAlignmentIndex(meta) {
+        return hasTumorRnaBam(meta) ? getTumorRnaBai(meta) : getTumorRnaCrai(meta)
     }
 
 

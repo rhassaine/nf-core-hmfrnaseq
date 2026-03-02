@@ -48,6 +48,7 @@ include { SORTMERNA_FILTER           } from '../subworkflows/local/sortmerna_fil
 include { MULTIQC                            } from '../modules/local/multiqc/main'
 include { MULTIQC as MULTIQC_AGGREGATED     } from '../modules/local/multiqc/main'
 include { FASTQC                } from '../modules/nf-core/fastqc/main'
+include { REDUX                } from '../modules/local/redux/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -114,12 +115,55 @@ workflow RNA_REDUX_WORKFLOW {
     ch_align_rna_tumor_out = channel.empty()
     ch_sortmerna_log = channel.empty()
 
+    // Samples with pre-aligned input (BAM/CRAM) bypass alignment but still run REDUX
+    ch_prealigned = ch_inputs
+        .filter { meta ->
+            Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) || Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
+        }
+        .map { meta ->
+            def sample = Utils.getTumorRnaSample(meta)
+            def meta_redux = [
+                key: meta.group_id,
+                id: "${meta.group_id}_${sample.sample_id}",
+                sample_id: sample.sample_id,
+                subject_id: meta.subject_id,
+                group_id: meta.group_id,
+            ]
+            def bam = Utils.getTumorRnaAlignment(meta) ?: []
+            def bai = Utils.getTumorRnaAlignmentIndex(meta) ?: []
+            [meta_redux, [bam], bai instanceof List ? bai : [bai]]
+        }
+
+    REDUX(
+        ch_prealigned,
+        ref_data.genome_fasta,
+        ref_data.genome_version,
+        ref_data.genome_fai,
+        ref_data.genome_dict,
+        hmf_data.unmap_regions,
+        [],  // msi_jitter_sites: skip jitter analysis for RNA
+        false,  // umi_enable
+        '',     // umi_duplex_delim
+    )
+
+    ch_redux_prealigned = REDUX.out.bam
+        .map { meta, bam, bai ->
+            [meta.group_id, meta, bam, bai]
+        }
+        .combine(ch_inputs.map { meta -> [meta.group_id, meta] }, by: 0)
+        .map { group_id, meta_redux, bam, bai, meta_full ->
+            meta_full.id = meta_redux.sample_id ?: meta_full.subject_id ?: meta_full.group_id ?: 'unknown'
+            [meta_full, bam, bai]
+        }
+
+    ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(ch_redux_prealigned)
+
     if (run_config.stages.alignment) {
 
         // Build raw FASTQ channel (same shape as SORTMERNA_FILTER.out.reads)
         ch_raw_fastq_inputs = ch_inputs
             .filter { meta ->
-                Utils.hasTumorRnaFastq(meta) && !Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR)
+                Utils.hasTumorRnaFastq(meta) && !Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) && !Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
             }
             .flatMap { meta ->
                 def meta_sample = Utils.getTumorRnaSample(meta)
@@ -165,14 +209,6 @@ workflow RNA_REDUX_WORKFLOW {
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA_REDUX.out.rna_tumor)
 
-    } else {
-
-    ch_align_rna_tumor_out = ch_inputs.map { meta ->
-        // enrich meta like alignment would do
-        def sample = Utils.getTumorRnaSample(meta)
-        meta.id = sample.sample_id ?: meta.subject_id ?: meta.group_id ?: 'unknown'
-        [meta, [], []]
-        }
     }
 
     //

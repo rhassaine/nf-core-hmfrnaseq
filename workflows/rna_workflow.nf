@@ -117,6 +117,21 @@ workflow RNA_WORKFLOW {
     ch_markdups_metrics = channel.empty()
     ch_sortmerna_log = channel.empty()
 
+    // Samples with pre-aligned input (BAM/CRAM) bypass alignment
+    ch_prealigned = ch_inputs
+        .filter { meta ->
+            Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) || Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
+        }
+        .map { meta ->
+            def sample = Utils.getTumorRnaSample(meta)
+            meta.id = sample.sample_id ?: meta.subject_id ?: meta.group_id ?: 'unknown'
+            def bam = Utils.getTumorRnaAlignment(meta) ?: []
+            def bai = Utils.getTumorRnaAlignmentIndex(meta) ?: []
+            [meta, bam, bai]
+        }
+
+    ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(ch_prealigned)
+
     if (run_config.stages.alignment) {
 
         SORTMERNA_FILTER(
@@ -137,14 +152,6 @@ workflow RNA_WORKFLOW {
 
         ch_sortmerna_log = SORTMERNA_FILTER.out.sort_log
 
-    } else {
-
-    ch_align_rna_tumor_out = ch_inputs.map { meta ->
-        // enrich meta like alignment would do
-        def sample = Utils.getTumorRnaSample(meta)
-        meta.id = sample.sample_id ?: meta.subject_id ?: meta.group_id ?: 'unknown'
-        [meta, [], []]
-        }
     }
 
     //
