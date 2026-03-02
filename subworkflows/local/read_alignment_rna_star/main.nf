@@ -1,18 +1,17 @@
 //
-// Align RNA reads with REDUX duplicate marking
-// Uses samtools fixmate to set MC tags (streaming, memory-efficient)
+// Align RNA reads with STAR (coordinate sort + merge)
+// Downstream REDUX_PROCESSING handles fixmate and duplicate marking.
 //
 
 import Constants
 import Utils
 import WorkflowOncoanalyser
 
-include { REDUX                  } from '../../../modules/local/redux/main'
-include { SAMBAMBA_MERGE         } from '../../../modules/local/sambamba/merge/main'
-include { SAMTOOLS_FIXMATE_SORT  } from '../../../modules/local/samtools/fixmate_sort/main'
-include { STAR_ALIGN             } from '../../../modules/local/star/align/main'
+include { SAMBAMBA_MERGE  } from '../../../modules/local/sambamba/merge/main'
+include { SAMTOOLS_SORT   } from '../../../modules/local/samtools/sort/main'
+include { STAR_ALIGN      } from '../../../modules/local/star/align/main'
 
-workflow READ_ALIGNMENT_RNA_REDUX {
+workflow READ_ALIGNMENT_RNA_STAR {
     take:
     // Sample data
     ch_inputs         // channel: [mandatory] [ meta ]
@@ -20,12 +19,6 @@ workflow READ_ALIGNMENT_RNA_REDUX {
 
     // Reference data
     genome_star_index // channel: [mandatory] /path/to/genome_star_index/
-    genome_fasta      // channel: [mandatory] /path/to/genome.fa
-    genome_ver        // channel: [mandatory] genome version string (e.g., '38')
-    genome_fai        // channel: [mandatory] /path/to/genome.fa.fai
-    genome_dict       // channel: [mandatory] /path/to/genome.dict
-    unmap_regions     // channel: [mandatory] /path/to/unmap_regions.tsv
-    msi_jitter_sites  // channel: [optional] /path/to/msi_jitter_sites.tsv.gz ([] to skip jitter analysis)
 
     main:
     // channel for version.yml files
@@ -65,8 +58,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     ch_versions = ch_versions.mix(STAR_ALIGN.out.versions)
 
     //
-    // MODULE: SAMtools fixmate + sort
-    // Sets MC (mate CIGAR) tag via streaming: name-sort → fixmate → coord-sort
+    // MODULE: SAMtools coordinate sort
     //
     // Create process input channel
     // channel: [ meta_sort, bam ]
@@ -81,11 +73,11 @@ workflow READ_ALIGNMENT_RNA_REDUX {
         }
 
     // Run process
-    SAMTOOLS_FIXMATE_SORT(
+    SAMTOOLS_SORT(
         ch_sort_inputs,
     )
 
-    ch_versions = ch_versions.mix(SAMTOOLS_FIXMATE_SORT.out.versions)
+    ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)
 
     //
     // MODULE: Sambamba merge
@@ -105,7 +97,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     // channel: [ meta_group, [bam, ...] ]
     ch_bams_united = ch_sample_fastq_counts
         .cross(
-            SAMTOOLS_FIXMATE_SORT.out.bam.map { meta, bam -> [[key: meta.key], bam] }
+            SAMTOOLS_SORT.out.bam.map { meta, bam -> [[key: meta.key], bam] }
         )
         .map { count_tuple, bam_tuple ->
 
@@ -124,7 +116,7 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     // channel: [ meta_group, [bai, ...] ]
     ch_bais_united = ch_sample_fastq_counts
         .cross(
-            SAMTOOLS_FIXMATE_SORT.out.bai.map { meta, bai -> [[key: meta.key], bai] }
+            SAMTOOLS_SORT.out.bai.map { meta, bai -> [[key: meta.key], bai] }
         )
         .map { count_tuple, bai_tuple ->
             def group_size = count_tuple[1]
@@ -176,53 +168,18 @@ workflow READ_ALIGNMENT_RNA_REDUX {
     ch_versions = ch_versions.mix(SAMBAMBA_MERGE.out.versions)
 
     //
-    // MODULE: REDUX duplicate marking
+    // Collect merged BAMs (restored meta, ready for downstream REDUX_PROCESSING)
     //
-    // Collect BAMs and BAIs from merge or single-BAM path
     // channel: [ meta, bam, bai ]
-    ch_bams_for_redux = channel.empty()
+    ch_bams_ready = channel.empty()
         .mix(
             // Merged BAMs - Sambamba merge doesn't produce BAI
             WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs)
                 .map { meta, bam -> [meta, bam, []] },
-            // Single BAMs already have BAI from SAMTOOLS_FIXMATE_SORT
+            // Single BAMs already have BAI from SAMTOOLS_SORT
             WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs)
                 .join(WorkflowOncoanalyser.restoreMeta(ch_bais_united_sorted.skip, ch_inputs)),
         )
-        .map { meta, bam, bai ->
-            def meta_sample = Utils.getTumorRnaSample(meta)
-            def meta_redux = [
-                key: meta.group_id,
-                id: "${meta.group_id}_${meta_sample.sample_id}",
-                sample_id: Utils.getTumorRnaSampleName(meta),
-                subject_id: meta.subject_id,
-                group_id: meta.group_id,
-            ]
-            return [meta_redux, [bam], bai instanceof List ? bai : [bai]]
-        }
-
-    // Run process
-    REDUX(
-        ch_bams_for_redux,
-        genome_fasta,
-        genome_ver,
-        genome_fai,
-        genome_dict,
-        unmap_regions,
-        msi_jitter_sites,
-        false,  // umi_enable
-        '',     // umi_duplex_delim
-    )
-
-    ch_versions = ch_versions.mix(REDUX.out.versions)
-
-    // Combine BAM and BAI outputs from REDUX
-    // REDUX.out.bam emits: [ meta, bam, bai ]
-    // channel: [ meta, bam, bai ]
-    ch_bams_ready = WorkflowOncoanalyser.groupByMeta(
-        WorkflowOncoanalyser.restoreMeta(REDUX.out.bam.map { meta, bam, bai -> [meta, bam] }, ch_inputs),
-        WorkflowOncoanalyser.restoreMeta(REDUX.out.bam.map { meta, bam, bai -> [meta, bai] }, ch_inputs),
-    )
 
     // Set outputs
     // channel: [ meta, bam, bai ]

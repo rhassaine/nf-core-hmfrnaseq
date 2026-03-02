@@ -41,14 +41,15 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 
 include { ISOFOX_QUANTIFICATION      } from '../subworkflows/local/isofox_quantification'
 include { PREPARE_REFERENCE          } from '../subworkflows/local/prepare_reference'
-include { READ_ALIGNMENT_RNA_REDUX   } from '../subworkflows/local/read_alignment_rna_redux'
+include { READ_ALIGNMENT_RNA_STAR    } from '../subworkflows/local/read_alignment_rna_star'
+include { REDUX_PROCESSING           } from '../subworkflows/local/redux_processing'
+include { RRNA_QC_GATE              } from '../subworkflows/local/rrna_qc_gate'
 include { RSEQC_ANALYSIS             } from '../subworkflows/local/rseqc_analysis'
 include { SORTMERNA_FILTER           } from '../subworkflows/local/sortmerna_filter'
 
 include { MULTIQC                            } from '../modules/local/multiqc/main'
 include { MULTIQC as MULTIQC_AGGREGATED     } from '../modules/local/multiqc/main'
 include { FASTQC                } from '../modules/nf-core/fastqc/main'
-include { REDUX                } from '../modules/local/redux/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -112,51 +113,11 @@ workflow RNA_REDUX_WORKFLOW {
         ch_fastqc_out = FASTQC.out.zip
     }
 
-    ch_align_rna_tumor_out = channel.empty()
+    //
+    // TASK: Alignment (FASTQ → STAR → sort → merge)
+    //
+    ch_aligned = channel.empty()
     ch_sortmerna_log = channel.empty()
-
-    // Samples with pre-aligned input (BAM/CRAM) bypass alignment but still run REDUX
-    ch_prealigned = ch_inputs
-        .filter { meta ->
-            Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) || Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
-        }
-        .map { meta ->
-            def sample = Utils.getTumorRnaSample(meta)
-            def meta_redux = [
-                key: meta.group_id,
-                id: "${meta.group_id}_${sample.sample_id}",
-                sample_id: sample.sample_id,
-                subject_id: meta.subject_id,
-                group_id: meta.group_id,
-            ]
-            def bam = Utils.getTumorRnaAlignment(meta) ?: []
-            def bai = Utils.getTumorRnaAlignmentIndex(meta) ?: []
-            [meta_redux, [bam], bai instanceof List ? bai : [bai]]
-        }
-
-    REDUX(
-        ch_prealigned,
-        ref_data.genome_fasta,
-        ref_data.genome_version,
-        ref_data.genome_fai,
-        ref_data.genome_dict,
-        hmf_data.unmap_regions,
-        [],  // msi_jitter_sites: skip jitter analysis for RNA
-        false,  // umi_enable
-        '',     // umi_duplex_delim
-    )
-
-    ch_redux_prealigned = REDUX.out.bam
-        .map { meta, bam, bai ->
-            [meta.group_id, meta, bam, bai]
-        }
-        .combine(ch_inputs.map { meta -> [meta.group_id, meta] }, by: 0)
-        .map { group_id, meta_redux, bam, bai, meta_full ->
-            meta_full.id = meta_redux.sample_id ?: meta_full.subject_id ?: meta_full.group_id ?: 'unknown'
-            [meta_full, bam, bai]
-        }
-
-    ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(ch_redux_prealigned)
 
     if (run_config.stages.alignment) {
 
@@ -193,23 +154,50 @@ workflow RNA_REDUX_WORKFLOW {
             ch_sortmerna_log = SORTMERNA_FILTER.out.sort_log
         }
 
-        READ_ALIGNMENT_RNA_REDUX(
+        READ_ALIGNMENT_RNA_STAR(
             ch_inputs,
             ch_reads_for_alignment,
             ref_data.genome_star_index,
-            ref_data.genome_fasta,
-            ref_data.genome_version,
-            ref_data.genome_fai,
-            ref_data.genome_dict,
-            hmf_data.unmap_regions,
-            [],  // msi_jitter_sites: skip jitter analysis for RNA (spliced reads cause errors)
         )
 
-        ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA_REDUX.out.versions)
+        ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA_STAR.out.versions)
 
-        ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA_REDUX.out.rna_tumor)
+        // Filter out skip entries (samples without FASTQ input)
+        ch_aligned = READ_ALIGNMENT_RNA_STAR.out.rna_tumor
+            .filter { meta, bam, bai -> bam }
 
     }
+
+    //
+    // TASK: Pre-aligned BAM/CRAM samples (bypass alignment)
+    //
+    // channel: [ meta, bam, bai ]
+    ch_prealigned = ch_inputs
+        .filter { meta ->
+            Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) || Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
+        }
+        .map { meta ->
+            def bam = Utils.getTumorRnaAlignment(meta) ?: []
+            def bai = Utils.getTumorRnaAlignmentIndex(meta) ?: []
+            [meta, bam, bai]
+        }
+
+    //
+    // TASK: REDUX processing (fixmate + duplicate marking/unmapping for all BAMs)
+    //
+    REDUX_PROCESSING(
+        ch_inputs,
+        ch_aligned.mix(ch_prealigned),
+        ref_data.genome_fasta,
+        ref_data.genome_version,
+        ref_data.genome_fai,
+        ref_data.genome_dict,
+        hmf_data.unmap_regions,
+    )
+
+    ch_versions = ch_versions.mix(REDUX_PROCESSING.out.versions)
+
+    ch_align_rna_tumor_out = REDUX_PROCESSING.out.rna_tumor
 
     //
     // TASK: RSeQC QC analysis (must run before Isofox for rRNA contamination check)
@@ -239,65 +227,23 @@ workflow RNA_REDUX_WORKFLOW {
     }
 
     //
-    // TASK: rRNA QC gate - parse splitbam stats and branch samples
+    // TASK: rRNA QC gate - parse splitbam stats and gate samples for Isofox
     //
-    // Parse stats and add rRNA metrics to meta, then branch into pass/fail
-    ch_rrna_qc_result = ch_splitbam_stats
-        .map { meta, stats_file ->
-            def rrna_stats = Utils.parseRrnaStats(stats_file)
-            def qc_result = Utils.checkRrnaQc(
-                rrna_stats,
-                params.rrna_threshold_count ?: 0,
-                params.rrna_threshold_percent ?: 0
-            )
-            // Log the rRNA stats for visibility
-            log.info "rRNA QC [${meta.group_id}]: ${rrna_stats.rrna_reads}/${rrna_stats.total_reads} reads (${String.format('%.2f', rrna_stats.rrna_percent)}%) - ${qc_result.pass ? 'PASS' : 'FAIL'}"
-            if (!qc_result.pass) {
-                log.warn "Sample ${meta.group_id} FAILED rRNA QC: ${qc_result.fail_reason}"
-            }
-            [meta, qc_result.pass, rrna_stats]
-        }
-        .branch { meta, pass, rrna_stats ->
-            pass: pass
-                return meta
-            fail: true
-                return meta
-        }
-
-    //
-    // TASK: SortMeRNA QC stats - informational logging only
-    //
-    // Aggregate SortMeRNA stats per sample (one log per lane) for logging and MultiQC
-    // SortMeRNA removes rRNA before alignment, so these stats reflect raw contamination levels.
-    // The RSeQC gate checks the actual post-alignment BAM, which is what matters for Isofox.
-    ch_sortmerna_qc_result = ch_sortmerna_log
-        .map { meta, log_file ->
-            def stats = Utils.parseSortmernaLog(log_file)
-            [meta.key, stats.total_reads, stats.rrna_reads]
-        }
-        .groupTuple()
-        .map { key, total_list, rrna_list ->
-            def total = total_list.sum()
-            def rrna = rrna_list.sum()
-            def pct = total > 0 ? (rrna / (double)total) * 100.0 : 0.0
-            [key, [total_reads: total, rrna_reads: rrna, rrna_percent: pct]]
-        }
-
-    ch_inputs
-        .map { meta -> [meta.group_id, meta] }
-        .join(ch_sortmerna_qc_result)
-        .map { group_id, meta, rrna_stats ->
-            log.info "SortMeRNA [${meta.group_id}]: ${rrna_stats.rrna_reads}/${rrna_stats.total_reads} rRNA reads removed (${String.format('%.2f', rrna_stats.rrna_percent)}%)"
-        }
-
-    // Samples must pass RSeQC rRNA gate (if RSeQC ran) to proceed to Isofox
     ch_samples_for_isofox = ch_bam_split.isofox
+    ch_inputs_for_isofox = ch_inputs
 
     if (run_config.stages.rseqc) {
-        ch_samples_for_isofox = ch_samples_for_isofox
-            .map { meta, bam, bai -> [meta.group_id, meta, bam, bai] }
-            .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id, meta] }, by: 0)
-            .map { group_id, meta_bam, bam, bai, meta_qc -> [meta_bam, bam, bai] }
+        RRNA_QC_GATE(
+            ch_inputs,
+            ch_splitbam_stats,
+            ch_sortmerna_log,
+            ch_bam_split.isofox,
+            params.rrna_threshold_count,
+            params.rrna_threshold_percent,
+        )
+
+        ch_samples_for_isofox = RRNA_QC_GATE.out.bam_pass
+        ch_inputs_for_isofox = RRNA_QC_GATE.out.inputs_pass
     }
 
     //
@@ -309,16 +255,6 @@ workflow RNA_REDUX_WORKFLOW {
 
         isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
         isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
-
-        // Get inputs for samples that passed rRNA QC (RSeQC gate)
-        ch_inputs_for_isofox = ch_inputs
-
-        if (run_config.stages.rseqc) {
-            ch_inputs_for_isofox = ch_inputs_for_isofox
-                .map { meta -> [meta.group_id, meta] }
-                .join(ch_rrna_qc_result.pass.map { meta -> [meta.group_id] }, by: 0)
-                .map { group_id, meta -> meta }
-        }
 
         ISOFOX_QUANTIFICATION(
             ch_inputs_for_isofox,
