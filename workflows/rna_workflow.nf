@@ -73,7 +73,7 @@ workflow RNA_WORKFLOW {
     // Create channel for BED file input
     // channel: [ meta2, bed ]
     ch_bed = params.rseqc_bed_file
-        ? channel.of([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
+        ? Channel.value([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
         : channel.empty()
 
     // Set up reference data, assign more human readable variables
