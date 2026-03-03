@@ -59,7 +59,7 @@ process REDUX {
         -unmap_regions ${unmap_regions} \\
         -bamtool \$(which samtools) \\
         -write_stats \\
-        -threads ${task.cpus} \\
+        -threads ${task.ext.threads ?: task.cpus} \\
         ${log_level_arg} \\
         -output_dir ./
 

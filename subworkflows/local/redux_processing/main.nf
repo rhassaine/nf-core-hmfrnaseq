@@ -43,6 +43,7 @@ workflow REDUX_PROCESSING {
                 sample_id: Utils.getTumorRnaSampleName(meta),
                 subject_id: meta.subject_id,
                 group_id: meta.group_id,
+                prefix: meta_sample.sample_id,
             ]
             return [meta_process, bam]
         }
