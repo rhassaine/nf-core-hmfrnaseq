@@ -1,11 +1,13 @@
 //
 // Pre-alignment rRNA filtering using SortMeRNA
+// Builds the rRNA index once, then reuses it for all samples.
 //
 
 import Constants
 import Utils
 
-include { SORTMERNA } from '../../../modules/nf-core/sortmerna/main'
+include { SORTMERNA as SORTMERNA_INDEX } from '../../../modules/nf-core/sortmerna/main'
+include { SORTMERNA                    } from '../../../modules/nf-core/sortmerna/main'
 
 workflow SORTMERNA_FILTER {
     take:
@@ -26,6 +28,7 @@ workflow SORTMERNA_FILTER {
                 .collect { key, fps ->
                     def (library_id, lane) = key
 
+
                     def meta_fastq = [
                         key: meta.group_id,
                         id: "${meta.group_id}_${meta_sample.sample_id}",
@@ -40,11 +43,13 @@ workflow SORTMERNA_FILTER {
 
     // nf-core sortmerna module expects [meta, [R1, R2]]
     ch_sortmerna_in = ch_fastq_inputs.map { meta, fwd, rev -> [meta, [fwd, rev]] }
-    ch_sortmerna_fastas = sortmerna_db.map { db -> [[:], db] }
+    ch_sortmerna_fastas = sortmerna_db.map { db -> [[:], db] }.first()
 
-    SORTMERNA(ch_sortmerna_in, ch_sortmerna_fastas, [[:], []])
+    // Build rRNA index once (reads are staged but unused with --index 1)
+    SORTMERNA_INDEX(ch_sortmerna_in.first(), ch_sortmerna_fastas, [[:], []])
 
-    // Note: SORTMERNA versions are collected via topics
+    // Filter all samples using pre-built index (--index 0 skips rebuild)
+    SORTMERNA(ch_sortmerna_in, ch_sortmerna_fastas, SORTMERNA_INDEX.out.index.first())
 
     // Split output back to [meta, R1, R2]
     ch_reads_filtered = SORTMERNA.out.reads
