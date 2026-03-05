@@ -138,6 +138,69 @@
                     "description": "Skip SortMeRNA pre-alignment rRNA filtering.",
                     "fa_icon": "fas fa-forward",
                     "help_text": "When enabled, raw FASTQs are passed directly to STAR alignment without rRNA filtering. Useful for comparison runs or when SortMeRNA is not needed."
+                },
+                "hmf_genomes_base": {
+                    "type": "string",
+                    "default": "https://pub-cf6ba01919994c3cbd354659947f74d8.r2.dev/genomes",
+                    "description": "The base path to the HMF genome reference files",
+                    "fa_icon": "fas fa-ban",
+                    "hidden": true
+                },
+                "gridss_config": {
+                    "type": "string",
+                    "description": "Path to GRIDSS configuration file.",
+                    "fa_icon": "fas fa-cog"
+                },
+                "ref_data_hmf_data_path": {
+                    "type": "string",
+                    "description": "Path to HMF data.",
+                    "fa_icon": "far fa-folder-open"
+                },
+                "ref_data_panel_data_path": {
+                    "type": "string",
+                    "description": "Path to panel data.",
+                    "fa_icon": "far fa-folder-open"
+                },
+                "max_fastq_records": {
+                    "type": "integer",
+                    "default": 10000000
+                },
+                "fastp_umi": {
+                    "type": "boolean"
+                },
+                "processes_manual": {
+                    "type": "boolean"
+                },
+                "processes_include": {
+                    "type": "string"
+                },
+                "processes_exclude": {
+                    "type": "string"
+                },
+                "prepare_reference_only": {
+                    "type": "boolean"
+                },
+                "create_stub_placeholders": {
+                    "type": "boolean",
+                    "hidden": true
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
+                    "enum": ["rna_workflow", "rna_redux_workflow", "fastqc_workflow", "redux_test", "other_mode"],
+                    "default": "rna_workflow",
+                    "fa_icon": "fas fa-cogs"
+                },
+                "redux_test_bam": {
+                    "type": "string",
+                    "description": "Path to BAM file for REDUX testing (redux_test mode only).",
+                    "fa_icon": "fas fa-file"
+                },
+                "bamchecker_enable": {
+                    "type": "boolean",
+                    "description": "Run BAMCHECKER to validate BAM before REDUX duplicate marking (rna_redux_workflow only).",
+                    "default": true,
+                    "fa_icon": "fas fa-check-circle"
                 }
             }
         },
@@ -385,67 +448,5 @@
             "$ref": "#/$defs/other_options"
         }
     ],
-    "properties": {
-        "hmf_genomes_base": {
-            "type": "string",
-            "default": "https://pub-cf6ba01919994c3cbd354659947f74d8.r2.dev/genomes",
-            "description": "The base path to the HMF genome reference files",
-            "fa_icon": "fas fa-ban"
-        },
-        "gridss_config": {
-            "type": "string",
-            "description": "Path to GRIDSS configuration file.",
-            "fa_icon": "fas fa-cog"
-        },
-        "ref_data_hmf_data_path": {
-            "type": "string",
-            "description": "Path to HMF data.",
-            "fa_icon": "far fa-folder-open"
-        },
-        "ref_data_panel_data_path": {
-            "type": "string",
-            "description": "Path to panel data.",
-            "fa_icon": "far fa-folder-open"
-        },
-        "max_fastq_records": {
-            "type": "integer",
-            "default": 10000000
-        },
-        "fastp_umi": {
-            "type": "boolean"
-        },
-        "processes_manual": {
-            "type": "boolean"
-        },
-        "processes_include": {
-            "type": "string"
-        },
-        "processes_exclude": {
-            "type": "string"
-        },
-        "prepare_reference_only": {
-            "type": "boolean"
-        },
-        "create_stub_placeholders": {
-            "type": "boolean"
-        },
-        "mode": {
-            "type": "string",
-            "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
-            "enum": ["rna_workflow", "rna_redux_workflow", "fastqc_workflow", "redux_test", "other_mode"],
-            "default": "rna_workflow",
-            "fa_icon": "fas fa-cogs"
-        },
-        "redux_test_bam": {
-            "type": "string",
-            "description": "Path to BAM file for REDUX testing (redux_test mode only).",
-            "fa_icon": "fas fa-file"
-        },
-        "bamchecker_enable": {
-            "type": "boolean",
-            "description": "Run BAMCHECKER to validate BAM before REDUX duplicate marking (rna_redux_workflow only).",
-            "default": true,
-            "fa_icon": "fas fa-check-circle"
-        }
-    }
+    "properties": {}
 }
