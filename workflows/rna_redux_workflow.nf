@@ -47,6 +47,7 @@ include { RRNA_QC_GATE              } from '../subworkflows/local/rrna_qc_gate'
 include { RSEQC_ANALYSIS             } from '../subworkflows/local/rseqc_analysis'
 include { SORTMERNA_FILTER           } from '../subworkflows/local/sortmerna_filter'
 
+include { AMBER                              } from '../modules/local/amber/main'
 include { MULTIQC                            } from '../modules/local/multiqc/main'
 include { MULTIQC as MULTIQC_AGGREGATED     } from '../modules/local/multiqc/main'
 include { FASTQC                } from '../modules/nf-core/fastqc/main'
@@ -198,6 +199,28 @@ workflow RNA_REDUX_WORKFLOW {
     ch_versions = ch_versions.mix(REDUX_PROCESSING.out.versions)
 
     ch_align_rna_tumor_out = REDUX_PROCESSING.out.rna_tumor
+
+    //
+    // TASK: AMBER BAF profiling (tumor-only, RNA BAMs)
+    //
+    ch_amber_inputs = ch_align_rna_tumor_out
+        .map { meta, bam, bai ->
+            def meta_sample = Utils.getTumorRnaSample(meta)
+            def meta_amber = [
+                key: meta.group_id,
+                id: meta.group_id,
+                sample_id: meta_sample.sample_id,
+            ]
+            [meta_amber, bam, bai]
+        }
+
+    AMBER(
+        ch_amber_inputs,
+        ref_data.genome_version,
+        hmf_data.heterozygous_sites,
+    )
+
+    ch_versions = ch_versions.mix(AMBER.out.versions)
 
     //
     // TASK: RSeQC QC analysis (must run before Isofox for rRNA contamination check)
