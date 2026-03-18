@@ -95,34 +95,25 @@ workflow READ_ALIGNMENT_RNA_STAR {
 
     // Now, group with expected size then sort into tumor and normal channels
     // channel: [ meta_group, [bam, ...] ]
-    ch_bams_united = ch_sample_fastq_counts
-        .cross(
-            SAMTOOLS_SORT.out.bam.map { meta, bam -> [[key: meta.key], bam] }
-        )
-        .map { count_tuple, bam_tuple ->
-
-            def group_size = count_tuple[1]
-            def (meta_bam, bam) = bam_tuple
-
-            def meta_group = [
-                *:meta_bam,
-            ]
-
-            return tuple(groupKey(meta_group, group_size), bam)
+    // NOTE: using combine(by:0) instead of cross — cross uses queue semantics that
+    // can silently drop samples on -resume when cached results emit in a different
+    // order or only partially. combine(by:0) does key-based matching reliably and
+    // handles multi-lane samples (multiple BAMs per key) correctly via groupTuple.
+    ch_bams_united = SAMTOOLS_SORT.out.bam
+        .map { meta, bam -> [[key: meta.key], bam] }
+        .combine(ch_sample_fastq_counts, by: 0)
+        .map { meta_key, bam, group_size ->
+            return tuple(groupKey(meta_key, group_size), bam)
         }
         .groupTuple()
 
     // Also group BAI files in the same way
     // channel: [ meta_group, [bai, ...] ]
-    ch_bais_united = ch_sample_fastq_counts
-        .cross(
-            SAMTOOLS_SORT.out.bai.map { meta, bai -> [[key: meta.key], bai] }
-        )
-        .map { count_tuple, bai_tuple ->
-            def group_size = count_tuple[1]
-            def (meta_bai, bai) = bai_tuple
-            def meta_group = [*:meta_bai]
-            return tuple(groupKey(meta_group, group_size), bai)
+    ch_bais_united = SAMTOOLS_SORT.out.bai
+        .map { meta, bai -> [[key: meta.key], bai] }
+        .combine(ch_sample_fastq_counts, by: 0)
+        .map { meta_key, bai, group_size ->
+            return tuple(groupKey(meta_key, group_size), bai)
         }
         .groupTuple()
 
