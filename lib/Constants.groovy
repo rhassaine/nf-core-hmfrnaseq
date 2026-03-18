@@ -18,6 +18,7 @@ class Constants {
 
     static enum Process {
         ALIGNMENT,
+        AMBER,
         ISOFOX,
         RSEQC,
         MULTIQC,
