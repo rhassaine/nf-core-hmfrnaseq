@@ -70,11 +70,10 @@ workflow RNA_WORKFLOW {
 
     // ch_inputs.view()
 
-    // Create channel for BED file input
-    // channel: [ meta2, bed ]
-    ch_bed = params.rseqc_bed_file
-        ? Channel.value([ [ key: 'bedfile', id: 'bedfile', ], file(params.rseqc_bed_file) ])
-        : channel.empty()
+    // Validate BED file requirement for RSeQC
+    if (run_config.stages.rseqc && !params.rseqc_bed_file) {
+        error "RSeQC is enabled but --rseqc_bed_file is not set. Provide an rRNA BED file or use --processes_exclude rseqc"
+    }
 
     // Set up reference data, assign more human readable variables
     PREPARE_REFERENCE(
@@ -82,6 +81,11 @@ workflow RNA_WORKFLOW {
     )
     ref_data = PREPARE_REFERENCE.out
     hmf_data = PREPARE_REFERENCE.out.hmf_data
+
+    // Create channel for BED file input (staged via PREPARE_REFERENCE)
+    // channel: [ meta2, bed ]
+    ch_bed = ref_data.rseqc_bed
+        .map { bed -> [ [ key: 'bedfile', id: 'bedfile' ], bed ] }
 
     ch_versions = ch_versions.mix(PREPARE_REFERENCE.out.versions)
 

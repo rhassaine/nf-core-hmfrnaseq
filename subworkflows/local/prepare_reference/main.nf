@@ -97,6 +97,14 @@ workflow PREPARE_REFERENCE {
     }
 
     //
+    // Set RSeQC BED file for rRNA region splitting
+    //
+    ch_rseqc_bed = channel.empty()
+    if (params.rseqc_bed_file && run_config.stages.rseqc) {
+        ch_rseqc_bed = channel.fromPath(params.rseqc_bed_file).first()
+    }
+
+    //
     // Set HMF reference data, unpack if required
     //
     ch_hmf_data = channel.empty()
@@ -131,6 +139,7 @@ workflow PREPARE_REFERENCE {
 
     hmf_data             = ch_hmf_data                     // map:  HMF data paths
     sortmerna_db         = ch_sortmerna_db                 // path: sortmerna rRNA database fasta
+    rseqc_bed            = ch_rseqc_bed                   // path: rRNA BED file for RSeQC splitbam
 
     versions             = ch_versions                     // channel: [ versions.yml ]
 }
