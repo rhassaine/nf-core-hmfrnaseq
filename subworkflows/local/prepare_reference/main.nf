@@ -24,7 +24,7 @@ workflow PREPARE_REFERENCE {
     //
     // Set genome reference channels
     //
-    ch_genome_fasta = channel.fromPath(params.ref_data_genome_fasta)
+    ch_genome_fasta = channel.fromPath(params.ref_data_genome_fasta).first()
     ch_genome_version = channel.value(params.genome_version)
 
     //
@@ -33,14 +33,14 @@ workflow PREPARE_REFERENCE {
     ch_genome_fai = getRefFilechannel('ref_data_genome_fai')
     if (!params.ref_data_genome_fai) {
         SAMTOOLS_FAIDX(ch_genome_fasta)
-        ch_genome_fai = SAMTOOLS_FAIDX.out.fai
+        ch_genome_fai = SAMTOOLS_FAIDX.out.fai.first()
         ch_versions = ch_versions.mix(SAMTOOLS_FAIDX.out.versions)
     }
 
     ch_genome_dict = getRefFilechannel('ref_data_genome_dict')
     if (!params.ref_data_genome_dict) {
         SAMTOOLS_DICT(ch_genome_fasta)
-        ch_genome_dict = SAMTOOLS_DICT.out.dict
+        ch_genome_dict = SAMTOOLS_DICT.out.dict.first()
         ch_versions = ch_versions.mix(SAMTOOLS_DICT.out.versions)
     }
 
@@ -55,7 +55,7 @@ workflow PREPARE_REFERENCE {
                 ch_genome_fasta,
                 file(params.ref_data_genome_gtf),
             )
-            ch_genome_star_index = STAR_GENOMEGENERATE.out.index
+            ch_genome_star_index = STAR_GENOMEGENERATE.out.index.first()
             ch_versions = ch_versions.mix(STAR_GENOMEGENERATE.out.versions)
 
         } else if (params.ref_data_genome_star_index.endsWith('.tar.gz')) {
@@ -64,7 +64,7 @@ workflow PREPARE_REFERENCE {
                 .map { [[id: "star_index_${it.name.replaceAll('\\.tar\\.gz$', '')}"], it] }
 
             DECOMP_STAR_INDEX(ch_genome_star_index_inputs)
-            ch_genome_star_index = DECOMP_STAR_INDEX.out.extracted_dir
+            ch_genome_star_index = DECOMP_STAR_INDEX.out.extracted_dir.first()
 
         } else {
 
@@ -87,10 +87,11 @@ workflow PREPARE_REFERENCE {
 
             ch_sortmerna_db = DECOMP_SORTMERNA_DB.out.extracted_dir
                 .map { dir -> file("${dir}/smr_v4.3_default_db.fasta") }
+                .first()
 
         } else {
 
-            ch_sortmerna_db = channel.fromPath(params.sortmerna_fastas)
+            ch_sortmerna_db = channel.fromPath(params.sortmerna_fastas).first()
 
         }
     }
@@ -122,10 +123,10 @@ workflow PREPARE_REFERENCE {
     }
 
     emit:
-    genome_fasta         = ch_genome_fasta.first()         // path: genome_fasta
-    genome_fai           = ch_genome_fai.first()           // path: genome_fai
-    genome_dict          = ch_genome_dict.first()          // path: genome_dict
-    genome_star_index    = ch_genome_star_index.first()    // path: genome_star_index
+    genome_fasta         = ch_genome_fasta                  // path: genome_fasta
+    genome_fai           = ch_genome_fai                   // path: genome_fai
+    genome_dict          = ch_genome_dict                  // path: genome_dict
+    genome_star_index    = ch_genome_star_index            // path: genome_star_index
     genome_version       = ch_genome_version               // val:  genome_version
 
     hmf_data             = ch_hmf_data                     // map:  HMF data paths

@@ -43,13 +43,13 @@ workflow SORTMERNA_FILTER {
 
     // nf-core sortmerna module expects [meta, [R1, R2]]
     ch_sortmerna_in = ch_fastq_inputs.map { meta, fwd, rev -> [meta, [fwd, rev]] }
-    ch_sortmerna_fastas = sortmerna_db.map { db -> [[:], db] }.first()
+    ch_sortmerna_fastas = sortmerna_db.map { db -> [[:], db] }
 
     // Build rRNA index once (reads are staged but unused with --index 1)
     SORTMERNA_INDEX(ch_sortmerna_in.first(), ch_sortmerna_fastas, [[:], []])
 
     // Filter all samples using pre-built index (--index 0 skips rebuild)
-    SORTMERNA(ch_sortmerna_in, ch_sortmerna_fastas, SORTMERNA_INDEX.out.index.first())
+    SORTMERNA(ch_sortmerna_in, ch_sortmerna_fastas, SORTMERNA_INDEX.out.index)
 
     // Split output back to [meta, R1, R2]
     ch_reads_filtered = SORTMERNA.out.reads
