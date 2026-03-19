@@ -58,21 +58,44 @@ workflow READ_ALIGNMENT_RNA_STAR {
     ch_versions = ch_versions.mix(STAR_ALIGN.out.versions)
 
     //
-    // MODULE: SAMtools coordinate sort
+    // Route BAMs: multi-lane samples need coord-sort + merge, single-lane skip both
     //
-    // Create process input channel
+    // Count expected BAMs per sample for grouping
+    // channel: [ [key: X], group_size ]
+    ch_sample_fastq_counts = ch_star_inputs
+        .map { meta_star, reads_fwd, reads_rev ->
+            return [[key: meta_star.key], meta_star]
+        }
+        .groupTuple()
+        .map { meta_count, meta_stars -> return [meta_count, meta_stars.size()] }
+
+    // Tag each STAR BAM with its sample's lane count, then branch
+    // channel: multi_lane:  [ meta_star, bam ]
+    // channel: single_lane: [ meta_star, bam ]
+    ch_star_bams_routed = STAR_ALIGN.out.bam
+        .map { meta, bam -> [[key: meta.key], meta, bam] }
+        .combine(ch_sample_fastq_counts, by: 0)
+        .map { meta_key, meta_star, bam, group_size -> [meta_star, bam, group_size] }
+        .branch { meta_star, bam, group_size ->
+            multi_lane: group_size > 1
+                return [meta_star, bam]
+            single_lane: true
+                return [meta_star, bam]
+        }
+
+    //
+    // MODULE: SAMtools coordinate sort (multi-lane only — needed for SAMBAMBA_MERGE)
+    //
     // channel: [ meta_sort, bam ]
-    ch_sort_inputs = STAR_ALIGN.out.bam
+    ch_sort_inputs = ch_star_bams_routed.multi_lane
         .map { meta_star, bam ->
             def meta_sort = [
                 *:meta_star,
                 prefix: meta_star.read_group,
             ]
-
             return [meta_sort, bam]
         }
 
-    // Run process
     SAMTOOLS_SORT(
         ch_sort_inputs,
     )
@@ -80,26 +103,11 @@ workflow READ_ALIGNMENT_RNA_STAR {
     ch_versions = ch_versions.mix(SAMTOOLS_SORT.out.versions)
 
     //
-    // MODULE: Sambamba merge
+    // MODULE: Sambamba merge (multi-lane only)
     //
-    // Reunite BAMs
-    // First, count expected BAMs per sample for non-blocking groupTuple op
-    // channel: [ meta_count, group_size ]
-    ch_sample_fastq_counts = ch_star_inputs
-        .map { meta_star, reads_fwd, reads_rev ->
-            def meta_count = [key: meta_star.key]
-            return [meta_count, meta_star]
-        }
-        .groupTuple()
-        .map { meta_count, meta_stars -> return [meta_count, meta_stars.size()] }
-
-    // Now, group with expected size then sort into tumor and normal channels
+    // Group sorted BAMs by sample key for merging
     // channel: [ meta_group, [bam, ...] ]
-    // NOTE: using combine(by:0) instead of cross — cross uses queue semantics that
-    // can silently drop samples on -resume when cached results emit in a different
-    // order or only partially. combine(by:0) does key-based matching reliably and
-    // handles multi-lane samples (multiple BAMs per key) correctly via groupTuple.
-    ch_bams_united = SAMTOOLS_SORT.out.bam
+    ch_bams_for_merge = SAMTOOLS_SORT.out.bam
         .map { meta, bam -> [[key: meta.key], bam] }
         .combine(ch_sample_fastq_counts, by: 0)
         .map { meta_key, bam, group_size ->
@@ -107,38 +115,9 @@ workflow READ_ALIGNMENT_RNA_STAR {
         }
         .groupTuple()
 
-    // Also group BAI files in the same way
-    // channel: [ meta_group, [bai, ...] ]
-    ch_bais_united = SAMTOOLS_SORT.out.bai
-        .map { meta, bai -> [[key: meta.key], bai] }
-        .combine(ch_sample_fastq_counts, by: 0)
-        .map { meta_key, bai, group_size ->
-            return tuple(groupKey(meta_key, group_size), bai)
-        }
-        .groupTuple()
-
-    // Sort into merge-eligible BAMs (at least two BAMs required)
-    // channel: runnable: [ meta_group, [bam, ...] ]
-    // channel: skip: [ meta_group, bam ]
-    ch_bams_united_sorted = ch_bams_united
-        .branch { meta_group, bams ->
-            runnable: bams.size() > 1
-            skip: true
-                return [meta_group, bams[0]]
-        }
-
-    // Also sort BAIs to match
-    // channel: skip: [ meta_group, bai ]
-    ch_bais_united_sorted = ch_bais_united
-        .branch { meta_group, bais ->
-            runnable: bais.size() > 1
-            skip: true
-                return [meta_group, bais[0]]
-        }
-
     // Create process input channel
     // channel: [ meta_merge, [bams, ...] ]
-    ch_merge_inputs = WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.runnable, ch_inputs)
+    ch_merge_inputs = WorkflowOncoanalyser.restoreMeta(ch_bams_for_merge, ch_inputs)
         .map { meta, bams ->
             def meta_sample = Utils.getTumorRnaSample(meta)
             def meta_merge = [
@@ -159,17 +138,17 @@ workflow READ_ALIGNMENT_RNA_STAR {
     ch_versions = ch_versions.mix(SAMBAMBA_MERGE.out.versions)
 
     //
-    // Collect merged BAMs (restored meta, ready for downstream REDUX_PROCESSING)
+    // Collect BAMs (restored meta, ready for downstream REDUX_PROCESSING)
     //
     // channel: [ meta, bam, bai ]
     ch_bams_ready = channel.empty()
         .mix(
-            // Merged BAMs - Sambamba merge doesn't produce BAI
+            // Multi-lane: merged BAMs (Sambamba merge doesn't produce BAI)
             WorkflowOncoanalyser.restoreMeta(SAMBAMBA_MERGE.out.bam, ch_inputs)
                 .map { meta, bam -> [meta, bam, []] },
-            // Single BAMs already have BAI from SAMTOOLS_SORT
-            WorkflowOncoanalyser.restoreMeta(ch_bams_united_sorted.skip, ch_inputs)
-                .join(WorkflowOncoanalyser.restoreMeta(ch_bais_united_sorted.skip, ch_inputs)),
+            // Single-lane: unsorted STAR BAMs (no BAI needed, FIXMATE_SORT re-sorts)
+            WorkflowOncoanalyser.restoreMeta(ch_star_bams_routed.single_lane, ch_inputs)
+                .map { meta, bam -> [meta, bam, []] },
         )
 
     // Set outputs
