@@ -90,30 +90,44 @@ workflow RNA_REDUX_WORKFLOW {
     ch_versions = ch_versions.mix(PREPARE_REFERENCE.out.versions)
 
     //
+    // Build FASTQ channel once — used by FastQC, SortMeRNA, and alignment
+    // Uses a separate channel.fromList(inputs) to avoid consuming ch_inputs
+    //
+    ch_raw_fastq_inputs = channel.fromList(inputs)
+        .filter { meta ->
+            Utils.hasTumorRnaFastq(meta) && !Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) && !Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
+        }
+        .flatMap { meta ->
+            def meta_sample = Utils.getTumorRnaSample(meta)
+            meta_sample
+                .getAt(Constants.FileType.FASTQ)
+                .collect { key, fps ->
+                    def (library_id, lane) = key
+                    def meta_fastq = [
+                        key: meta.group_id,
+                        id: "${meta.group_id}_${meta_sample.sample_id}",
+                        sample_id: meta_sample.sample_id,
+                        library_id: library_id,
+                        lane: lane,
+                    ]
+                    [meta_fastq, fps['fwd'], fps['rev']]
+                }
+        }
+
+    //
     // TASK: FastQC on raw reads
     //
     ch_fastqc_out = channel.empty()
     if (run_config.stages.alignment) {
-        // Create FASTQ input channel for FastQC
-        ch_fastq_for_qc = ch_inputs
-            .flatMap { meta ->
-                def meta_sample = Utils.getTumorRnaSample(meta)
-                meta_sample
-                    .getAt(Constants.FileType.FASTQ)
-                    .collect { key, fps ->
-                        def (library_id, lane) = key
-                        def meta_fastqc = [
-                            key: meta.group_id,
-                            id: "${meta.group_id}_${meta_sample.sample_id}_${library_id}_${lane}",
-                            sample_id: meta_sample.sample_id,
-                            library_id: library_id,
-                            lane: lane,
-                        ]
-                        return [meta_fastqc, [fps['fwd'], fps['rev']]]
-                    }
+        ch_fastq_for_qc = ch_raw_fastq_inputs
+            .map { meta_fastq, fwd, rev ->
+                def meta_fastqc = [
+                    *:meta_fastq,
+                    id: "${meta_fastq.id}_${meta_fastq.library_id}_${meta_fastq.lane}",
+                ]
+                return [meta_fastqc, [fwd, rev]]
             }
 
-        // Note: FastQC versions are collected via topics
         FASTQC(ch_fastq_for_qc)
         ch_fastqc_out = FASTQC.out.zip
     }
@@ -125,28 +139,6 @@ workflow RNA_REDUX_WORKFLOW {
     ch_sortmerna_log = channel.empty()
 
     if (run_config.stages.alignment) {
-
-        // Build raw FASTQ channel (same shape as SORTMERNA_FILTER.out.reads)
-        ch_raw_fastq_inputs = ch_inputs
-            .filter { meta ->
-                Utils.hasTumorRnaFastq(meta) && !Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) && !Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
-            }
-            .flatMap { meta ->
-                def meta_sample = Utils.getTumorRnaSample(meta)
-                meta_sample
-                    .getAt(Constants.FileType.FASTQ)
-                    .collect { key, fps ->
-                        def (library_id, lane) = key
-                        def meta_fastq = [
-                            key: meta.group_id,
-                            id: "${meta.group_id}_${meta_sample.sample_id}",
-                            sample_id: meta_sample.sample_id,
-                            library_id: library_id,
-                            lane: lane,
-                        ]
-                        [meta_fastq, fps['fwd'], fps['rev']]
-                    }
-            }
 
         // Optionally filter rRNA reads with SortMeRNA before alignment
         ch_reads_for_alignment = ch_raw_fastq_inputs
