@@ -94,8 +94,10 @@ workflow RNA_WORKFLOW {
     //
     ch_fastqc_out = channel.empty()
     if (run_config.stages.alignment) {
-        // Create FASTQ input channel for FastQC
-        ch_fastq_for_qc = ch_inputs
+        // Build FastQC channel from independent channel.fromList to avoid
+        // consuming ch_inputs (queue channels can only be read once per consumer)
+        ch_fastq_for_qc = channel.fromList(inputs)
+            .filter { meta -> Utils.hasTumorRnaFastq(meta) }
             .flatMap { meta ->
                 def meta_sample = Utils.getTumorRnaSample(meta)
                 meta_sample
