@@ -1,0 +1,4 @@
+group_id,subject_id,sample_id,sample_type,sequence_type,filetype,info,filepath
+sample_a,sample_a,sample_a.tumor_rna,TUMOR,rna,fastq,library_id:library_1;lane:001,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357070_1.fastq.gz;https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357070_2.fastq.gz
+sample_b,sample_b,sample_b.tumor_rna,TUMOR,rna,fastq,library_id:library_1;lane:001,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357072_1.fastq.gz;https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357072_2.fastq.gz
+sample_c,sample_c,sample_c.tumor_rna,TUMOR,rna,fastq,library_id:library_1;lane:001,https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357076_1.fastq.gz;https://raw.githubusercontent.com/nf-core/test-datasets/rnaseq/testdata/GSE110004/SRR6357076_2.fastq.gz

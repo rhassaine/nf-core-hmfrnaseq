@@ -94,8 +94,9 @@ workflow RNA_REDUX_WORKFLOW {
     //
     ch_fastqc_out = channel.empty()
     if (run_config.stages.alignment) {
-        // Create FASTQ input channel for FastQC
-        ch_fastq_for_qc = ch_inputs
+        // Build FastQC channel from its own independent channel.fromList
+        ch_fastq_for_qc = channel.fromList(inputs)
+            .filter { meta -> Utils.hasTumorRnaFastq(meta) }
             .flatMap { meta ->
                 def meta_sample = Utils.getTumorRnaSample(meta)
                 meta_sample
@@ -113,7 +114,6 @@ workflow RNA_REDUX_WORKFLOW {
                     }
             }
 
-        // Note: FastQC versions are collected via topics
         FASTQC(ch_fastq_for_qc)
         ch_fastqc_out = FASTQC.out.zip
     }
@@ -126,8 +126,8 @@ workflow RNA_REDUX_WORKFLOW {
 
     if (run_config.stages.alignment) {
 
-        // Build raw FASTQ channel (same shape as SORTMERNA_FILTER.out.reads)
-        ch_raw_fastq_inputs = ch_inputs
+        // Build alignment channel from its own independent channel.fromList
+        ch_raw_fastq_inputs = channel.fromList(inputs)
             .filter { meta ->
                 Utils.hasTumorRnaFastq(meta) && !Utils.hasExistingInput(meta, Constants.INPUT.BAM_RNA_TUMOR) && !Utils.hasExistingInput(meta, Constants.INPUT.CRAM_RNA_TUMOR)
             }
