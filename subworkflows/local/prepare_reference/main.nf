@@ -144,9 +144,29 @@ workflow PREPARE_REFERENCE {
     versions             = ch_versions                     // channel: [ versions.yml ]
 }
 
+// IMPORTANT: must use channel.value() not channel.of() here.
+//
+// Nextflow has two channel types (https://www.nextflow.io/docs/latest/channel.html):
+//
+//   Queue channel (channel.of, channel.fromPath, channel.fromList, process outputs):
+//     - Each item can only be consumed ONCE across all readers
+//     - When a process reads an item, it's gone — other tasks/processes never see it
+//     - Designed for per-sample data that flows through the pipeline
+//
+//   Value channel (channel.value, channel.of with single item in some contexts):
+//     - Can be read unlimited times by any number of processes/tasks
+//     - The same value is available to every task invocation
+//     - Designed for shared reference data (genomes, indices, BED files)
+//
+// Using channel.of() here created a queue channel for reference files like
+// genome_star_index. The first STAR task consumed it, and all subsequent
+// samples silently received nothing — causing only 1/N samples to align.
+//
+// See: https://www.nextflow.io/docs/latest/channel.html#queue-channel
+//      https://www.nextflow.io/docs/latest/channel.html#value-channel
 def getRefFilechannel(key) {
     def fp = params.get(key) ? file(params.getAt(key)) : []
-    return channel.of(fp)
+    return channel.value(fp)
 }
 
 def createDataMap(entries, ref_data_path) {
