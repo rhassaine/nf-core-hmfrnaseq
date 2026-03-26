@@ -8,7 +8,7 @@ process AMBER {
         'biocontainers/hmftools-amber:4.2--hdfd78af_0' }"
 
     input:
-    tuple val(meta), path(tumor_bam), path(tumor_bai)
+    tuple val(meta), path(bam), path(bai)
     val genome_ver
     path heterozygous_sites
 
@@ -23,12 +23,15 @@ process AMBER {
     def args = task.ext.args ?: ''
     def xmx_mod = task.ext.xmx_mod ?: 0.75
 
+    // Germline-only mode: uses -reference/-reference_bam instead of -tumor/-tumor_bam
+    // This skips contamination checks and PCF fitting, and names output with ref sample
+    // See: https://github.com/hartwigmedical/hmftools/tree/master/amber#germline-only-mode
     """
     amber \\
         -Xmx${Math.round(task.memory.bytes * xmx_mod)} \\
         ${args} \\
-        -tumor ${meta.sample_id} \\
-        -tumor_bam ${tumor_bam} \\
+        -reference ${meta.sample_id} \\
+        -reference_bam ${bam} \\
         -ref_genome_version ${genome_ver} \\
         -loci ${heterozygous_sites} \\
         -threads ${task.cpus} \\

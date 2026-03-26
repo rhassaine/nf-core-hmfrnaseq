@@ -11,3 +11,4 @@ null/
 .nf-test.log
 temp/
 results_*/
+.claude/
