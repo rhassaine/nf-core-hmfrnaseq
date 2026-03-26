@@ -166,7 +166,7 @@ workflow PREPARE_REFERENCE {
 //      https://www.nextflow.io/docs/latest/channel.html#value-channel
 def getRefFilechannel(key) {
     def fp = params.get(key) ? file(params.getAt(key)) : []
-    return channel.value(fp)
+    return channel.value(fp) // was channel.of(fp) — the bug that caused only 1/N samples to align when using a STAR index tarball
 }
 
 def createDataMap(entries, ref_data_path) {
