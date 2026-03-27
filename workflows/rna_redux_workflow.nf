@@ -205,10 +205,16 @@ workflow RNA_REDUX_WORKFLOW {
     ch_align_rna_tumor_out = REDUX_PROCESSING.out.rna_tumor
 
     //
-    // TASK: AMBER BAF profiling (tumor-only, RNA BAMs)
+    // TASK: AMBER BAF profiling (germline-only mode, RNA BAMs/CRAMs)
     //
     if (run_config.stages.amber) {
-        ch_amber_inputs = ch_align_rna_tumor_out
+        // AMBER input: use REDUX output if available, otherwise use pre-aligned BAMs/CRAMs directly
+        // This allows AMBER-only runs (--processes_include amber) with CRAM input
+        ch_amber_bams = ch_align_rna_tumor_out
+            .mix(ch_prealigned)
+            .filter { meta, bam, bai -> bam }
+
+        ch_amber_inputs = ch_amber_bams
             .map { meta, bam, bai ->
                 def meta_sample = Utils.getTumorRnaSample(meta)
                 def meta_amber = [
