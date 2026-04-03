@@ -77,7 +77,7 @@ workflow PREPARE_REFERENCE {
     // Set SortMeRNA rRNA database, unpack if required
     //
     ch_sortmerna_db = channel.empty()
-    if (params.sortmerna_fastas && run_config.has_rna_fastq && run_config.stages.alignment) {
+    if (params.sortmerna_fastas && params.mode != 'rna_redux_workflow' && run_config.has_rna_fastq && run_config.stages.alignment) {
         if (params.sortmerna_fastas.endsWith('.tar.gz')) {
 
             ch_sortmerna_db_inputs = channel.fromPath(params.sortmerna_fastas)

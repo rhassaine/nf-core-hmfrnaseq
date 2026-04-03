@@ -139,6 +139,20 @@
                     "fa_icon": "fas fa-forward",
                     "help_text": "When enabled, raw FASTQs are passed directly to STAR alignment without rRNA filtering. Useful for comparison runs or when SortMeRNA is not needed."
                 },
+                "ribodetector_read_length": {
+                    "type": "integer",
+                    "default": 151,
+                    "description": "Read length for Ribodetector rRNA filtering.",
+                    "fa_icon": "fas fa-ruler",
+                    "help_text": "Mean sequencing read length passed to Ribodetector's -l parameter. Default 151 for standard Illumina 2x150bp. Used by rna_redux_workflow."
+                },
+                "skip_rrna_filter": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip Ribodetector pre-alignment rRNA filtering (rna_redux_workflow).",
+                    "fa_icon": "fas fa-forward",
+                    "help_text": "When enabled, raw FASTQs are passed directly to STAR alignment without Ribodetector rRNA filtering in rna_redux_workflow."
+                },
                 "hmf_genomes_base": {
                     "type": "string",
                     "default": "https://pub-cf6ba01919994c3cbd354659947f74d8.r2.dev/genomes",

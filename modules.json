@@ -30,6 +30,11 @@
                         "git_sha": "5bdb098216aaf5df9c3b6343e6204cd932503c16",
                         "installed_by": ["modules"]
                     },
+                    "ribodetector": {
+                        "branch": "master",
+                        "git_sha": "5cb9a8694da0a0e550921636bb60bc8c56445fd7",
+                        "installed_by": ["modules"]
+                    },
                     "rseqc/bamstat": {
                         "branch": "master",
                         "git_sha": "90c60e4fe6f7178caac97110ea5e1e7789912466",

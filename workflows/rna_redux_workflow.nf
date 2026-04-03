@@ -43,9 +43,9 @@ include { ISOFOX_QUANTIFICATION      } from '../subworkflows/local/isofox_quanti
 include { PREPARE_REFERENCE          } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA_STAR    } from '../subworkflows/local/read_alignment_rna_star'
 include { REDUX_PROCESSING           } from '../subworkflows/local/redux_processing'
+include { RIBODETECTOR_FILTER         } from '../subworkflows/local/ribodetector_filter'
 include { RRNA_QC_GATE              } from '../subworkflows/local/rrna_qc_gate'
 include { RSEQC_ANALYSIS             } from '../subworkflows/local/rseqc_analysis'
-include { SORTMERNA_FILTER           } from '../subworkflows/local/sortmerna_filter'
 
 include { AMBER                              } from '../modules/local/amber/main'
 include { MULTIQC                            } from '../modules/local/multiqc/main'
@@ -122,7 +122,7 @@ workflow RNA_REDUX_WORKFLOW {
     // TASK: Alignment (FASTQ → STAR → sort → merge)
     //
     ch_aligned = channel.empty()
-    ch_sortmerna_log = channel.empty()
+    ch_ribodetector_log = channel.empty()
 
     if (run_config.stages.alignment) {
 
@@ -148,15 +148,15 @@ workflow RNA_REDUX_WORKFLOW {
                     }
             }
 
-        // Optionally filter rRNA reads with SortMeRNA before alignment
+        // Optionally filter rRNA reads with Ribodetector before alignment
         ch_reads_for_alignment = ch_raw_fastq_inputs
-        if (!params.skip_sortmerna) {
-            SORTMERNA_FILTER(
+        if (!params.skip_rrna_filter) {
+            RIBODETECTOR_FILTER(
                 ch_inputs,
-                ref_data.sortmerna_db,
+                params.ribodetector_read_length,
             )
-            ch_reads_for_alignment = SORTMERNA_FILTER.out.reads
-            ch_sortmerna_log = SORTMERNA_FILTER.out.sort_log
+            ch_reads_for_alignment = RIBODETECTOR_FILTER.out.reads
+            ch_ribodetector_log = RIBODETECTOR_FILTER.out.ribo_log
         }
 
         READ_ALIGNMENT_RNA_STAR(
@@ -271,7 +271,7 @@ workflow RNA_REDUX_WORKFLOW {
         RRNA_QC_GATE(
             ch_inputs,
             ch_splitbam_stats,
-            ch_sortmerna_log,
+            channel.empty(),  // SortMeRNA log not available — using Ribodetector instead
             ch_bam_split.isofox,
             params.rrna_threshold_count,
             params.rrna_threshold_percent,
@@ -326,7 +326,7 @@ workflow RNA_REDUX_WORKFLOW {
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
             .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
-            .mix(ch_sortmerna_log.map { meta, log_file -> [meta.key, log_file] })
+            .mix(ch_ribodetector_log.map { meta, log_file -> [meta.key, log_file] })
             .filter { group_id, files -> files }
             .groupTuple(by: 0)
             .map { group_id, file_lists ->
@@ -348,7 +348,7 @@ workflow RNA_REDUX_WORKFLOW {
         // Aggregated MultiQC report (all samples, no FastQC - one row per sample)
         ch_multiqc_aggregated = channel.empty()
             .mix(ch_rseqc_out.map { meta, files -> files })
-            .mix(ch_sortmerna_log.map { meta, log_file -> log_file })
+            .mix(ch_ribodetector_log.map { meta, log_file -> log_file })
             .flatten()
             .filter { it }
             .collect()
