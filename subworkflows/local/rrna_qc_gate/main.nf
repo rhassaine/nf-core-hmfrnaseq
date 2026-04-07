@@ -1,5 +1,5 @@
 //
-// rRNA QC gate: parse RSeQC splitbam stats, log SortMeRNA stats,
+// rRNA QC gate: parse RustQC biotype counts, log SortMeRNA stats,
 // and gate BAM/input channels for downstream Isofox processing
 //
 
@@ -8,7 +8,7 @@ import Utils
 workflow RRNA_QC_GATE {
     take:
     ch_inputs              // channel: [mandatory] [ meta ]
-    ch_splitbam_stats      // channel: [mandatory] [ meta, stats_file ]
+    ch_biotype_counts      // channel: [mandatory] [ meta, biotype_counts_file ]
     ch_sortmerna_log       // channel: [optional]  [ meta, log_file ]
     ch_bam                 // channel: [mandatory] [ meta, bam, bai ] (BAMs to gate)
     rrna_threshold_count   //   value: [mandatory] max rRNA read count (0 = disabled)
@@ -16,11 +16,11 @@ workflow RRNA_QC_GATE {
 
     main:
     //
-    // STEP 1: Parse splitbam stats and branch samples into pass/fail
+    // STEP 1: Parse biotype counts and branch samples into pass/fail
     //
-    ch_rrna_qc_result = ch_splitbam_stats
+    ch_rrna_qc_result = ch_biotype_counts
         .map { meta, stats_file ->
-            def rrna_stats = Utils.parseRrnaStats(stats_file)
+            def rrna_stats = Utils.parseBiotypeCounts(stats_file)
             def qc_result = Utils.checkRrnaQc(
                 rrna_stats,
                 rrna_threshold_count ?: 0,

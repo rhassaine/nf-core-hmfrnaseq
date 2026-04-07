@@ -179,7 +179,6 @@ class Utils {
             params.ref_data_genome_fasta,
             params.ref_data_genome_gtf,
             params.ref_data_genome_star_index,
-            params.rseqc_bed_file,
         ]
 
         params.hmf_data_paths[params.genome_version.toString()]
@@ -369,34 +368,27 @@ class Utils {
         }
     }
 
-    // Parse splitbam stats file and return rRNA metrics
-    // Expected format from RSeQC split_bam.py:
-    //   Total records: 12345
-    //   ...
-    //   prefix.in.bam: 1234   (reads overlapping BED regions, i.e. rRNA)
-    //   prefix.ex.bam: 5678   (reads not overlapping BED regions)
-    //   prefix.junk.bam: 123  (unmapped/QC-failed reads)
-    public static parseRrnaStats(stats_file) {
+    // Parse RustQC biotype_counts.tsv for rRNA metrics
+    // Format: TSV with header "Biotype\tCount", one row per gene biotype
+    // total_reads = sum of all biotype-assigned reads (not total BAM reads)
+    public static parseBiotypeCounts(biotype_file) {
         def total_reads = 0L
         def rrna_reads = 0L
+        def first_line = true
 
         try {
-            stats_file.eachLine { line ->
-                def trimmed = line.trim()
-                // Match "Total records: <number>"
-                if (trimmed.startsWith('Total records:')) {
-                    def value = trimmed.replaceFirst(/^Total records:\s*/, '')
-                    total_reads = value.isLong() ? value.toLong() : 0L
-                }
-                // Match "<prefix>.in.bam ...:<number>" - reads in BED regions (rRNA)
-                // Format: "prefix.in.bam (Alignments consumed by input gene list):12345"
-                else if (trimmed ==~ /.*\.in\.bam.*:\d+/) {
-                    def value = (trimmed =~ /(\d+)$/)[0][1]
-                    rrna_reads = value.isLong() ? value.toLong() : 0L
+            biotype_file.eachLine { line ->
+                if (first_line) { first_line = false; return }
+                def parts = line.trim().split('\t')
+                if (parts.size() >= 2 && parts[1].isLong()) {
+                    def count = parts[1].toLong()
+                    total_reads += count
+                    if (parts[0].trim() == 'rRNA') {
+                        rrna_reads = count
+                    }
                 }
             }
         } catch (Exception e) {
-            // Return zeros if file cannot be parsed
             total_reads = 0L
             rrna_reads = 0L
         }

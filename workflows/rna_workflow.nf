@@ -43,7 +43,7 @@ include { ISOFOX_QUANTIFICATION } from '../subworkflows/local/isofox_quantificat
 include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
 include { RRNA_QC_GATE          } from '../subworkflows/local/rrna_qc_gate'
-include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
+include { RUSTQC_ANALYSIS       } from '../subworkflows/local/rustqc_analysis'
 include { SORTMERNA_FILTER      } from '../subworkflows/local/sortmerna_filter'
 
 include { MULTIQC                            } from '../modules/local/multiqc/main'
@@ -70,9 +70,9 @@ workflow RNA_WORKFLOW {
 
     // ch_inputs.view()
 
-    // Validate BED file requirement for RSeQC
-    if (run_config.stages.rseqc && !params.rseqc_bed_file) {
-        error "RSeQC is enabled but --rseqc_bed_file is not set. Provide an rRNA BED file or use --processes_exclude rseqc"
+    // Validate GTF requirement for RustQC
+    if (run_config.stages.rseqc && !params.ref_data_genome_gtf) {
+        error "RustQC is enabled but --ref_data_genome_gtf is not set. Provide a GTF file or use --processes_exclude rseqc"
     }
 
     // Set up reference data, assign more human readable variables
@@ -82,10 +82,10 @@ workflow RNA_WORKFLOW {
     ref_data = PREPARE_REFERENCE.out
     hmf_data = PREPARE_REFERENCE.out.hmf_data
 
-    // Create channel for BED file input (staged via PREPARE_REFERENCE)
-    // channel: [ meta2, bed ]
-    ch_bed = ref_data.rseqc_bed
-        .map { bed -> [ [ key: 'bedfile', id: 'bedfile' ], bed ] }
+    // Create channel for GTF input (staged via PREPARE_REFERENCE)
+    // channel: [ meta2, gtf ]
+    ch_gtf = ref_data.genome_gtf
+        .map { gtf -> [ [ key: 'gtf', id: 'gtf' ], gtf ] }
 
     ch_versions = ch_versions.mix(PREPARE_REFERENCE.out.versions)
 
@@ -162,34 +162,34 @@ workflow RNA_WORKFLOW {
     }
 
     //
-    // TASK: RSeQC QC analysis (must run before Isofox for rRNA contamination check)
+    // TASK: RustQC analysis (must run before Isofox for rRNA contamination check)
     //
     // Split channel for multiple consumers
     ch_align_rna_tumor_out
         .multiMap { meta, bam, bai ->
-            rseqc: [meta, bam, bai]
+            rustqc: [meta, bam, bai]
             isofox: [meta, bam, bai]
         }
         .set { ch_bam_split }
 
-    ch_rseqc_out = channel.empty()
-    ch_splitbam_stats = channel.empty()
+    ch_rustqc_out = channel.empty()
+    ch_biotype_counts = channel.empty()
     if (run_config.stages.rseqc) {
-        // Run RSeQC QC on aligned BAMs
-        // Note: RSeQC versions are collected via topics
-        RSEQC_ANALYSIS(ch_inputs, ch_bam_split.rseqc, ch_bed)
+        // Run RustQC on aligned BAMs — single-pass QC with biotype-based rRNA detection
+        // Note: versions are collected via topics
+        RUSTQC_ANALYSIS(ch_inputs, ch_bam_split.rustqc, ch_gtf)
 
-        ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
-        ch_splitbam_stats = RSEQC_ANALYSIS.out.splitbam_stats
+        ch_rustqc_out = RUSTQC_ANALYSIS.out.qc_reports
+        ch_biotype_counts = RUSTQC_ANALYSIS.out.biotype_counts
 
     } else {
 
-        ch_rseqc_out = ch_inputs.map { meta -> [meta, []] }
+        ch_rustqc_out = ch_inputs.map { meta -> [meta, []] }
 
     }
 
     //
-    // TASK: rRNA QC gate - parse splitbam stats and gate samples for Isofox
+    // TASK: rRNA QC gate - parse biotype counts and gate samples for Isofox
     //
     ch_samples_for_isofox = ch_bam_split.isofox
     ch_inputs_for_isofox = ch_inputs
@@ -197,7 +197,7 @@ workflow RNA_WORKFLOW {
     if (run_config.stages.rseqc) {
         RRNA_QC_GATE(
             ch_inputs,
-            ch_splitbam_stats,
+            ch_biotype_counts,
             ch_sortmerna_log,
             ch_bam_split.isofox,
             params.rrna_threshold_count,
@@ -251,7 +251,7 @@ workflow RNA_WORKFLOW {
         // Group QC files by sample (group_id) for per-sample reports
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
-            .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
+            .mix(ch_rustqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .mix(ch_markdups_metrics.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .mix(ch_sortmerna_log.map { meta, log_file -> [meta.key, log_file] })
             .filter { group_id, files -> files }
@@ -274,7 +274,7 @@ workflow RNA_WORKFLOW {
 
         // Aggregated MultiQC report (all samples, no FastQC - one row per sample)
         ch_multiqc_aggregated = channel.empty()
-            .mix(ch_rseqc_out.map { meta, files -> files })
+            .mix(ch_rustqc_out.map { meta, files -> files })
             .mix(ch_markdups_metrics.map { meta, files -> files })
             .mix(ch_sortmerna_log.map { meta, log_file -> log_file })
             .flatten()

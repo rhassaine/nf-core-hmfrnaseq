@@ -97,11 +97,11 @@ workflow PREPARE_REFERENCE {
     }
 
     //
-    // Set RSeQC BED file for rRNA region splitting
+    // Set genome GTF for RustQC biotype counting
     //
-    ch_rseqc_bed = channel.empty()
-    if (params.rseqc_bed_file && run_config.stages.rseqc) {
-        ch_rseqc_bed = channel.fromPath(params.rseqc_bed_file).first()
+    ch_genome_gtf = channel.empty()
+    if (params.ref_data_genome_gtf && run_config.stages.rseqc) {
+        ch_genome_gtf = channel.fromPath(params.ref_data_genome_gtf).first()
     }
 
     //
@@ -139,7 +139,7 @@ workflow PREPARE_REFERENCE {
 
     hmf_data             = ch_hmf_data                     // map:  HMF data paths
     sortmerna_db         = ch_sortmerna_db                 // path: sortmerna rRNA database fasta
-    rseqc_bed            = ch_rseqc_bed                   // path: rRNA BED file for RSeQC splitbam
+    genome_gtf           = ch_genome_gtf                  // path: genome GTF for RustQC biotype counting
 
     versions             = ch_versions                     // channel: [ versions.yml ]
 }
