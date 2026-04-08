@@ -114,6 +114,14 @@
                     "fa_icon": "fas fa-file-alt",
                     "help_text": "BED file containing rRNA regions for RSeQC splitbam analysis. If not provided, defaults to genome-specific rRNA BED file."
                 },
+                "strandedness": {
+                    "type": "string",
+                    "default": "forward",
+                    "description": "Library strandedness for RustQC.",
+                    "fa_icon": "fas fa-exchange-alt",
+                    "help_text": "Strandedness of the RNA-seq library prep. Determines how reads are assigned to genes on each strand. Must match the library preparation protocol used.",
+                    "enum": ["forward", "reverse", "unstranded"]
+                },
                 "rrna_threshold_count": {
                     "type": "integer",
                     "description": "Maximum allowed rRNA read count before sample fails QC (0 = disabled).",

@@ -12,3 +12,11 @@ report_section_order:
 export_plots: true
 
 disable_version_detection: true
+
+# Normalize sample names across tools (display only, no files renamed).
+# Samtools output embeds the input BAM filename internally (includes .redux suffix).
+# FastQC outputs are per-lane with library_id and lane suffixes.
+extra_fn_clean_exts:
+  - ".redux"
+  - type: regex
+    pattern: "_[^_]+_L\\d+_\\d+$"
