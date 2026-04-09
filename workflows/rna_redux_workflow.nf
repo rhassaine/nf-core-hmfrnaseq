@@ -322,6 +322,10 @@ workflow RNA_REDUX_WORKFLOW {
     //
     // Note: REDUX metrics are not MultiQC-compatible, so only FastQC and RustQC are included
     if (run_config.stages.multiqc) {
+        // Load MultiQC config
+        ch_multiqc_config = channel.fromPath(
+            "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
+
         // Group QC files by sample (group_id) for per-sample reports
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
@@ -338,7 +342,7 @@ workflow RNA_REDUX_WORKFLOW {
 
         MULTIQC(
             ch_multiqc_per_sample,
-            [],
+            ch_multiqc_config.toList(),
             [],
             [],
             [],
@@ -359,7 +363,7 @@ workflow RNA_REDUX_WORKFLOW {
 
         MULTIQC_AGGREGATED(
             ch_multiqc_aggregated,
-            [],
+            ch_multiqc_config.toList(),
             [],
             [],
             [],
