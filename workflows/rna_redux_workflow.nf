@@ -326,6 +326,32 @@ workflow RNA_REDUX_WORKFLOW {
         ch_multiqc_config = channel.fromPath(
             "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
+        // Generate replace_names TSV to normalize sample names across tools.
+        // Qualimap embeds the BAM filename (e.g. "FR36586471T.redux") internally,
+        // and FastQC uses per-lane names — both need mapping to the canonical
+        // RustQC name: "<group_id>_<sample_id>".
+        ch_replace_names = channel.fromList(inputs)
+            .filter { meta -> Utils.hasTumorRna(meta) }
+            .flatMap { meta ->
+                def sample = Utils.getTumorRnaSample(meta)
+                def canonical = "${meta.group_id}_${sample.sample_id}"
+                def lines = []
+                // Qualimap: embeds BAM filename as sample name
+                lines << "${sample.sample_id}.redux\t${canonical}"
+                lines << "${sample.sample_id}\t${canonical}"
+                // FastQC: per-lane per-read names
+                if (sample.containsKey(Constants.FileType.FASTQ)) {
+                    sample.getAt(Constants.FileType.FASTQ).each { key, fps ->
+                        def (library_id, lane) = key
+                        def fq_prefix = "${meta.group_id}_${sample.sample_id}_${library_id}_${lane}"
+                        lines << "${fq_prefix}_1\t${canonical}"
+                        lines << "${fq_prefix}_2\t${canonical}"
+                    }
+                }
+                return lines
+            }
+            .collectFile(name: 'replace_names.tsv', newLine: true)
+
         // Group QC files by sample (group_id) for per-sample reports
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
@@ -345,7 +371,7 @@ workflow RNA_REDUX_WORKFLOW {
             ch_multiqc_config.toList(),
             [],
             [],
-            [],
+            ch_replace_names.toList(),
             []
         )
 
@@ -366,7 +392,7 @@ workflow RNA_REDUX_WORKFLOW {
             ch_multiqc_config.toList(),
             [],
             [],
-            [],
+            ch_replace_names.toList(),
             []
         )
     }
