@@ -303,7 +303,7 @@ workflow RNA_STANDARD_WORKFLOW {
             .filter { it }
             .collect()
             .map { files ->
-                def meta = [id: 'aggregated', key: 'aggregated']
+                def meta = [id: 'Aggregated', key: 'Aggregated']
                 [meta, files]
             }
 
