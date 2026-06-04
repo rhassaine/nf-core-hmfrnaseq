@@ -179,6 +179,7 @@ class Utils {
             params.ref_data_genome_fasta,
             params.ref_data_genome_gtf,
             params.ref_data_genome_star_index,
+            params.rseqc_bed_file,
         ]
 
         params.hmf_data_paths[params.genome_version.toString()]

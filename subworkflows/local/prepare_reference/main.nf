@@ -76,8 +76,10 @@ workflow PREPARE_REFERENCE {
     //
     // Set SortMeRNA rRNA database, unpack if required
     //
+    // SortMeRNA pre-alignment filtering is only used by rna_workflow; other modes (rna_redux_workflow uses
+    // Ribodetector, rna_standard does no pre-filter) must not stage/download the database.
     ch_sortmerna_db = channel.empty()
-    if (params.sortmerna_fastas && params.mode != 'rna_redux_workflow' && run_config.has_rna_fastq && run_config.stages.alignment) {
+    if (params.sortmerna_fastas && params.mode == 'rna_workflow' && run_config.has_rna_fastq && run_config.stages.alignment) {
         if (params.sortmerna_fastas.endsWith('.tar.gz')) {
 
             ch_sortmerna_db_inputs = channel.fromPath(params.sortmerna_fastas)
@@ -102,6 +104,14 @@ workflow PREPARE_REFERENCE {
     ch_genome_gtf = channel.empty()
     if (params.ref_data_genome_gtf && run_config.stages.rseqc) {
         ch_genome_gtf = channel.fromPath(params.ref_data_genome_gtf).first()
+    }
+
+    //
+    // Set RSeQC BED file for rRNA region splitting (split_bam rRNA counting)
+    //
+    ch_rseqc_bed = channel.empty()
+    if (params.rseqc_bed_file && run_config.stages.rseqc) {
+        ch_rseqc_bed = channel.fromPath(params.rseqc_bed_file).first()
     }
 
     //
@@ -140,6 +150,7 @@ workflow PREPARE_REFERENCE {
     hmf_data             = ch_hmf_data                     // map:  HMF data paths
     sortmerna_db         = ch_sortmerna_db                 // path: sortmerna rRNA database fasta
     genome_gtf           = ch_genome_gtf                  // path: genome GTF for RustQC biotype counting
+    rseqc_bed            = ch_rseqc_bed                   // path: rRNA BED file for RSeQC split_bam
 
     versions             = ch_versions                     // channel: [ versions.yml ]
 }

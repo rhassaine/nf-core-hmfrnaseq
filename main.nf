@@ -42,6 +42,7 @@ params.ref_data_genome_fai           = getGenomeAttribute('fai')
 params.ref_data_genome_dict          = getGenomeAttribute('dict')
 params.ref_data_genome_star_index    = getGenomeAttribute('star_index')
 params.ref_data_genome_gtf           = getGenomeAttribute('genome_gtf')
+params.rseqc_bed_file                = getGenomeAttribute('rseqc_bed_file')
 
 // rRNA QC thresholds (0 = disabled)
 params.rrna_threshold_count          = params.rrna_threshold_count ?: 143303744
@@ -69,10 +70,11 @@ if (workflow.stubRun && params.create_stub_placeholders) {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { RNA_WORKFLOW }       from './workflows/rna_workflow'
-include { RNA_REDUX_WORKFLOW } from './workflows/rna_redux_workflow'
-include { FASTQC_WORKFLOW }    from './workflows/fastqc_workflow'
-include { REDUX_TEST }         from './workflows/redux_test'
+include { RNA_WORKFLOW }          from './workflows/rna_workflow'
+include { RNA_REDUX_WORKFLOW }    from './workflows/rna_redux_workflow'
+include { RNA_STANDARD_WORKFLOW } from './workflows/rna_standard_workflow'
+include { FASTQC_WORKFLOW }       from './workflows/fastqc_workflow'
+include { REDUX_TEST }            from './workflows/redux_test'
 
 run_mode = Utils.getRunMode(params.mode, log)
 
@@ -85,6 +87,8 @@ workflow NFCORE_HMFRNASEQ {
         RNA_WORKFLOW()
     } else if (run_mode === Constants.RunMode.RNA_REDUX_WORKFLOW) {
         RNA_REDUX_WORKFLOW()
+    } else if (run_mode === Constants.RunMode.RNA_STANDARD) {
+        RNA_STANDARD_WORKFLOW()
     } else if (run_mode === Constants.RunMode.FASTQC_WORKFLOW) {
         FASTQC_WORKFLOW()
     } else if (run_mode === Constants.RunMode.REDUX_TEST) {

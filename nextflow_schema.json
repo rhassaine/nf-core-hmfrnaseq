@@ -122,6 +122,20 @@
                     "help_text": "Strandedness of the RNA-seq library prep. Determines how reads are assigned to genes on each strand. Must match the library preparation protocol used.",
                     "enum": ["forward", "reverse", "unstranded"]
                 },
+                "skip_rustqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip RustQC post-alignment rRNA counting / QC (rna_standard).",
+                    "fa_icon": "fas fa-forward",
+                    "help_text": "When enabled, RustQC is not run in the rna_standard workflow. RustQC and RSeQC are independent; disable one, both, or neither."
+                },
+                "skip_rseqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip RSeQC post-alignment rRNA counting / QC (rna_standard).",
+                    "fa_icon": "fas fa-forward",
+                    "help_text": "When enabled, RSeQC split_bam is not run in the rna_standard workflow. RustQC and RSeQC are independent; disable one, both, or neither."
+                },
                 "rrna_threshold_count": {
                     "type": "integer",
                     "description": "Maximum allowed rRNA read count before sample fails QC (0 = disabled).",
@@ -208,9 +222,9 @@
                 },
                 "mode": {
                     "type": "string",
-                    "description": "Run mode for the pipeline (e.g., 'rna_workflow').",
-                    "enum": ["rna_workflow", "rna_redux_workflow", "fastqc_workflow", "redux_test", "other_mode"],
-                    "default": "rna_workflow",
+                    "description": "Run mode for the pipeline (e.g., 'rna_standard').",
+                    "enum": ["rna_standard", "rna_workflow", "rna_redux_workflow", "fastqc_workflow", "redux_test", "other_mode"],
+                    "default": "rna_standard",
                     "fa_icon": "fas fa-cogs"
                 },
                 "redux_test_bam": {
