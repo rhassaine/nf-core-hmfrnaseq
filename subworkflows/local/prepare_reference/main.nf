@@ -192,14 +192,5 @@ def getRefdataFile(filepath, ref_data_path) {
     // If filepath is already absolute (starts with /), use it as-is
     // Otherwise, concatenate with base path
     def full_path = filepath.startsWith('/') ? filepath : "${ref_data_path.toString().replaceAll('/$', '')}/${filepath}"
-    // Tolerant lookup: resolve to [] (instead of erroring) when a file isn't present in the bundle.
-    // HMF resource bundles differ by version — e.g. v2.3.0--2 has no rna/ dir (no Isofox inputs), while
-    // v3.0.0--6 adds rna/{read_*_exp_counts,gc_ratios,rna_excluded_regions,...}. This lets both bundles
-    // work: present files are used, absent ones are skipped (the optional Isofox args are simply omitted).
-    def fp = file(full_path, checkIfExists: false)
-    if (!fp.exists()) {
-        System.err.println "WARN: [prepare_reference] reference file not in bundle, skipping: ${full_path}"
-        return []
-    }
-    return fp
+    return file(full_path, checkIfExists: true)
 }
