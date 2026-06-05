@@ -2,10 +2,11 @@ process ISOFOX {
     tag "${meta.id}"
     label 'process_medium'
 
-    conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'https://depot.galaxyproject.org/singularity/hmftools-isofox:1.7.1--hdfd78af_1' :
-        'biocontainers/hmftools-isofox:1.7.1--hdfd78af_1' }"
+    // Conda disabled: Isofox 2.0-beta.6 is not on Bioconda (newest is 1.7.2), so a conda run
+    // would silently use the wrong version. Use the HMF Docker image (Singularity auto-converts
+    // it via docker://). Re-enable conda only once 2.0 lands on Bioconda.
+    // conda "${moduleDir}/environment.yml"
+    container 'hartwigmedicalfoundation/isofox:2.0-beta.6'
 
     input:
     tuple val(meta), path(bam), path(bai)
