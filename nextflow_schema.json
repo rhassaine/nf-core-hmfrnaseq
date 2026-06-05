@@ -74,6 +74,13 @@
                     "description": "User defined Isofox gene list file for panel data.",
                     "fa_icon": "fas fa-cog"
                 },
+                "isofox_excluded_regions": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Isofox excluded-regions file (rna_excluded_regions.<ver>.tsv, Isofox 2.0+). Optional.",
+                    "fa_icon": "fas fa-cog",
+                    "help_text": "Passed to Isofox's -excluded_regions. Reads overlapping these regions are dropped. Available in the HMF v3.0.0+ resource bundle at rna/rna_excluded_regions.38.tsv; supply the path at runtime."
+                },
                 "isofox_functions": {
                     "type": "string",
                     "description": "Semicolon-separated list of Isofox functions to run",

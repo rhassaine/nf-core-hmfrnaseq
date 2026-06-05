@@ -24,6 +24,7 @@ workflow ISOFOX_QUANTIFICATION {
     isofox_gc_ratios       // channel: [mandatory] /path/to/isofox_gc_ratios
     isofox_gene_ids        // channel: [optional]  /path/to/gene_ids
     isofox_tpm_norm        // channel: [optional]  /path/to/tpm_norm
+    isofox_excluded_regions // channel: [optional] /path/to/rna_excluded_regions.tsv
 
     // Params
     isofox_functions       //  string: [optional]  Isofox functions
@@ -82,6 +83,7 @@ workflow ISOFOX_QUANTIFICATION {
         isofox_gc_ratios,
         isofox_gene_ids,
         isofox_tpm_norm,
+        isofox_excluded_regions,
     )
 
     ch_versions = ch_versions.mix(ISOFOX.out.versions)

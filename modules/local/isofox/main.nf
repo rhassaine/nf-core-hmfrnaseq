@@ -3,10 +3,11 @@ process ISOFOX {
     label 'process_medium'
 
     // Conda disabled: Isofox 2.0-beta.6 is not on Bioconda (newest is 1.7.2), so a conda run
-    // would silently use the wrong version. Use the HMF Docker image (Singularity auto-converts
-    // it via docker://). Re-enable conda only once 2.0 lands on Bioconda.
+    // would silently use the wrong version. Use the HMF Docker Hub image (Singularity auto-converts
+    // it via docker://). Fully-qualified with docker.io/ so the quay.io default registry isn't
+    // prepended. Re-enable conda only once 2.0 lands on Bioconda.
     // conda "${moduleDir}/environment.yml"
-    container 'hartwigmedicalfoundation/isofox:2.0-beta.6'
+    container 'docker.io/hartwigmedicalfoundation/isofox:2.0-beta.6'
 
     input:
     tuple val(meta), path(bam), path(bai)
@@ -21,6 +22,7 @@ process ISOFOX {
     path exp_gc_ratios
     path gene_ids
     path tpm_norm
+    path excluded_regions
 
     output:
     tuple val(meta), path('isofox/'), emit: isofox_dir
@@ -41,6 +43,7 @@ process ISOFOX {
 
     def gene_ids_arg = gene_ids ? "-gene_id_file ${gene_ids}" : ''
     def tpm_norm_arg = tpm_norm ? "-panel_tpm_norm_file ${tpm_norm}" : ''
+    def excluded_regions_arg = excluded_regions ? "-excluded_regions ${excluded_regions}" : ''
 
     """
     mkdir -p isofox/
@@ -60,6 +63,7 @@ process ISOFOX {
         ${exp_gc_ratios_arg} \\
         ${gene_ids_arg} \\
         ${tpm_norm_arg} \\
+        ${excluded_regions_arg} \\
         -threads ${task.cpus} \\
         -output_dir isofox/
 
