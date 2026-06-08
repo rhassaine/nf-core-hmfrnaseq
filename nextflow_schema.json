@@ -131,14 +131,12 @@
                 },
                 "skip_rustqc": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip RustQC post-alignment rRNA counting / QC (rna_standard).",
                     "fa_icon": "fas fa-forward",
                     "help_text": "When enabled, RustQC is not run in the rna_standard workflow. RustQC and RSeQC are independent; disable one, both, or neither."
                 },
                 "skip_rseqc": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip RSeQC post-alignment rRNA counting / QC (rna_standard).",
                     "fa_icon": "fas fa-forward",
                     "help_text": "When enabled, RSeQC split_bam is not run in the rna_standard workflow. RustQC and RSeQC are independent; disable one, both, or neither."
@@ -166,7 +164,6 @@
                 },
                 "skip_sortmerna": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip SortMeRNA pre-alignment rRNA filtering.",
                     "fa_icon": "fas fa-forward",
                     "help_text": "When enabled, raw FASTQs are passed directly to STAR alignment without rRNA filtering. Useful for comparison runs or when SortMeRNA is not needed."
@@ -180,7 +177,6 @@
                 },
                 "skip_rrna_filter": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Skip Ribodetector pre-alignment rRNA filtering (rna_redux_workflow).",
                     "fa_icon": "fas fa-forward",
                     "help_text": "When enabled, raw FASTQs are passed directly to STAR alignment without Ribodetector rRNA filtering in rna_redux_workflow."
