@@ -217,7 +217,7 @@ workflow RNA_WORKFLOW {
 
         isofox_counts = params.isofox_counts ? file(params.isofox_counts) : hmf_data.isofox_counts
         isofox_gc_ratios = params.isofox_gc_ratios ? file(params.isofox_gc_ratios) : hmf_data.isofox_gc_ratios
-        isofox_excluded_regions = params.isofox_excluded_regions ? file(params.isofox_excluded_regions) : []
+        isofox_excluded_regions = params.isofox_excluded_regions ? file(params.isofox_excluded_regions) : hmf_data.isofox_excluded_regions
 
         ISOFOX_QUANTIFICATION(
             ch_inputs_for_isofox,
