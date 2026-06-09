@@ -103,6 +103,17 @@ The pipeline supports multiple run modes controlled by `--mode` parameter (defau
 
 The pipeline uses Nextflow channels to pass data between stages. Key channel pattern: `ch_inputs` is parsed from the samplesheet in `Utils.parseInput()`, then flows through alignment → RustQC → rRNA gate → Isofox with `[meta, bam, bai]` tuples. Pre-aligned BAM/CRAM inputs bypass alignment via `Utils.hasExistingInput(...)`. Because queue channels can only be consumed once, FastQC and alignment each build their own `channel.fromList(inputs)` rather than sharing `ch_inputs`.
 
+### MultiQC reporting — sample naming & metric selection
+
+MultiQC merges metrics by sample name, so tools that emit a non-canonical name show up as **extra rows** in the general-stats table. Two deliberate choices keep the report to **one row per sample** (canonical `<group_id>_<sample_id>`):
+
+1. **`replace_names.tsv` (the `--replace-names` slot of the MULTIQC module) + `sample_names_replace_complete: true`** in `assets/multiqc_config.yml`. Each workflow generates this TSV from the samplesheet to remap tool-specific names → canonical:
+   - `rna_redux_workflow`: Qualimap embeds the REDUX BAM filename (`<sample_id>.redux`); FastQC uses per-lane names.
+   - `rna_standard_workflow`: only **FastQC** per-lane/per-read names (`<group_id>_<sample_id>_<lib>_<lane>_{1,2}`) need remapping (RustQC/RSeQC/Qualimap/Samtools already report canonical).
+2. **MarkDuplicates (GATK4/Picard) metrics are excluded from MultiQC in `rna_standard`.** MultiQC's Picard module names samples from the metrics' LIBRARY field (the read-group `sample_id.library.lane`), which created a duplicate per-sample row. The metric is also **redundant** for an RNA report — duplication is covered by **dupRadar** (RNA dup-vs-expression) + **Samtools** flagstat, and library complexity by **Preseq**. So `ch_markdups_metrics` is not mixed into either MULTIQC channel (the `.markdup.bam.metrics` file is still published to `outdir`; duplicates are still marked in the BAM). Renaming via `replace_names` would also work, but dropping the redundant metric is cleaner.
+
+> Note: this Picard-naming quirk has existed in every `rna_workflow` variant (they all mix `markdups_metrics` into MultiQC without `replace_names`) but was rarely seen because real `rna_workflow` + aggregated-MultiQC runs were uncommon. `rna_standard` addresses it by exclusion.
+
 ### Key Subworkflows (subworkflows/local/)
 
 **Current state (2026-06-04):**

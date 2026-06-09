@@ -131,7 +131,6 @@ workflow RNA_STANDARD_WORKFLOW {
     }
 
     ch_align_rna_tumor_out = channel.empty()
-    ch_markdups_metrics = channel.empty()
 
     // Samples with pre-aligned input (BAM/CRAM) bypass alignment
     ch_prealigned = ch_inputs
@@ -183,7 +182,6 @@ workflow RNA_STANDARD_WORKFLOW {
         ch_versions = ch_versions.mix(READ_ALIGNMENT_RNA.out.versions)
 
         ch_align_rna_tumor_out = ch_align_rna_tumor_out.mix(READ_ALIGNMENT_RNA.out.rna_tumor)
-        ch_markdups_metrics = ch_markdups_metrics.mix(READ_ALIGNMENT_RNA.out.markdups_metrics)
 
     }
 
@@ -271,13 +269,36 @@ workflow RNA_STANDARD_WORKFLOW {
         ch_multiqc_config = channel.fromPath(
             "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
 
+        // Normalize FastQC per-lane/per-read sample names to the canonical
+        // "<group_id>_<sample_id>" in the per-sample report. (The Picard/MarkDuplicates
+        // lane-name row is avoided differently — those metrics are excluded from MultiQC
+        // below as redundant; see CLAUDE.md "MultiQC reporting".)
+        ch_replace_names = channel.fromList(inputs)
+            .filter { meta -> Utils.hasTumorRna(meta) }
+            .flatMap { meta ->
+                def sample = Utils.getTumorRnaSample(meta)
+                def canonical = "${meta.group_id}_${sample.sample_id}"
+                def lines = []
+                if (sample.containsKey(Constants.FileType.FASTQ)) {
+                    sample.getAt(Constants.FileType.FASTQ).each { key, fps ->
+                        def (library_id, lane) = key
+                        def fq_prefix = "${meta.group_id}_${sample.sample_id}_${library_id}_${lane}"
+                        lines << "${fq_prefix}_1\t${canonical}"
+                        lines << "${fq_prefix}_2\t${canonical}"
+                    }
+                }
+                return lines
+            }
+            .collectFile(name: 'replace_names.tsv', newLine: true)
+
         // Group QC files by sample (group_id) for per-sample reports.
         // Both rRNA counters (whichever ran) are included so their numbers sit side by side.
+        // MarkDuplicates/Picard metrics are intentionally excluded — duplication is already
+        // covered by dupRadar + Samtools, and library complexity by Preseq (see CLAUDE.md).
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
             .mix(ch_rustqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
-            .mix(ch_markdups_metrics.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .filter { group_id, files -> files }
             .groupTuple(by: 0)
             .map { group_id, file_lists ->
@@ -292,15 +313,16 @@ workflow RNA_STANDARD_WORKFLOW {
             ch_multiqc_config.toList(),
             [],
             [],
-            [],
+            ch_replace_names.toList(),
             []
         )
 
-        // Aggregated MultiQC report (all samples, no FastQC - one row per sample)
+        // Aggregated MultiQC report (all samples, no FastQC - one row per sample).
+        // MarkDuplicates/Picard metrics excluded (redundant; also avoids the Picard
+        // library-name row that otherwise duplicated each sample). See CLAUDE.md.
         ch_multiqc_aggregated = channel.empty()
             .mix(ch_rustqc_out.map { meta, files -> files })
             .mix(ch_rseqc_out.map { meta, files -> files })
-            .mix(ch_markdups_metrics.map { meta, files -> files })
             .flatten()
             .filter { it }
             .collect()
@@ -314,7 +336,7 @@ workflow RNA_STANDARD_WORKFLOW {
             ch_multiqc_config.toList(),
             [],
             [],
-            [],
+            ch_replace_names.toList(),
             []
         )
     }
