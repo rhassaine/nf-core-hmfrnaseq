@@ -42,7 +42,7 @@ include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pi
 include { ISOFOX_QUANTIFICATION } from '../subworkflows/local/isofox_quantification'
 include { PREPARE_REFERENCE     } from '../subworkflows/local/prepare_reference'
 include { READ_ALIGNMENT_RNA    } from '../subworkflows/local/read_alignment_rna'
-include { RSEQC_ANALYSIS        } from '../subworkflows/local/rseqc_analysis'
+include { RRNA_COUNT            } from '../subworkflows/local/rrna_count'
 include { RUSTQC_ANALYSIS       } from '../subworkflows/local/rustqc_analysis'
 
 include { MULTIQC                            } from '../modules/local/multiqc/main'
@@ -67,17 +67,19 @@ workflow RNA_STANDARD_WORKFLOW {
     // channel: [ meta ]
     ch_inputs = channel.fromList(inputs)
 
-    // The `rseqc` process stage is the master switch for post-alignment rRNA QC; the two counters are then
-    // independently controlled with --skip_rustqc / --skip_rseqc (disable one, both, or neither).
+    // The `rseqc` process stage is the master switch for post-alignment QC. RustQC provides the
+    // extensive QC suite (single fast pass); the rRNA % comes from a fast samtools interval count
+    // (RustQC's biotype rRNA is unreliable on GRCh38 and is suppressed from the report below).
+    // Each is independently disablable: --skip_rustqc / --skip_rseqc.
     def run_rustqc = run_config.stages.rseqc && !params.skip_rustqc
-    def run_rseqc  = run_config.stages.rseqc && !params.skip_rseqc
+    def run_rrna   = run_config.stages.rseqc && !params.skip_rseqc
 
-    // Validate reference requirements only for the counter(s) that will actually run
+    // Validate reference requirements only for the step(s) that will actually run
     if (run_rustqc && !params.ref_data_genome_gtf) {
         error "RustQC is enabled but --ref_data_genome_gtf is not set. Provide a GTF file or use --skip_rustqc (or --processes_exclude rseqc)"
     }
-    if (run_rseqc && !params.rseqc_bed_file) {
-        error "RSeQC is enabled but --rseqc_bed_file is not set. Provide an rRNA BED file or use --skip_rseqc (or --processes_exclude rseqc)"
+    if (run_rrna && !params.rseqc_bed_file) {
+        error "rRNA counting is enabled but --rseqc_bed_file is not set. Provide an rRNA BED file or use --skip_rseqc (or --processes_exclude rseqc)"
     }
 
     // Set up reference data, assign more human readable variables
@@ -186,21 +188,21 @@ workflow RNA_STANDARD_WORKFLOW {
     }
 
     //
-    // TASK: rRNA counting + quantification — NO GATE.
+    // TASK: QC + quantification — NO GATE.
     //
-    // The aligned-BAM channel fans out into three independent consumers so RustQC, RSeQC
+    // The aligned-BAM channel fans out so RustQC (extensive QC), the samtools rRNA count,
     // and Isofox all run in parallel. Isofox is NOT filtered by rRNA content; every aligned
     // (and pre-aligned) sample is quantified.
     ch_align_rna_tumor_out
         .multiMap { meta, bam, bai ->
             rustqc: [meta, bam, bai]
-            rseqc:  [meta, bam, bai]
+            rrna:   [meta, bam, bai]
             isofox: [meta, bam, bai]
         }
         .set { ch_bam_split }
 
     //
-    // TASK: RustQC analysis (rRNA biotype counts + full QC)
+    // TASK: RustQC — extensive post-alignment QC (single fast pass)
     //
     ch_rustqc_out = channel.empty()
     if (run_rustqc) {
@@ -212,15 +214,15 @@ workflow RNA_STANDARD_WORKFLOW {
     }
 
     //
-    // TASK: RSeQC analysis (split_bam rRNA count + QC) — cross-check for RustQC
+    // TASK: rRNA quantification via samtools interval count (RustQC's biotype rRNA is unreliable)
     //
-    ch_rseqc_out = channel.empty()
-    if (run_rseqc) {
-        // Note: RSeQC versions are collected via topics
-        RSEQC_ANALYSIS(ch_inputs, ch_bam_split.rseqc, ch_bed)
-        ch_rseqc_out = RSEQC_ANALYSIS.out.qc_reports
+    ch_rrna_out = channel.empty()
+    if (run_rrna) {
+        // Note: versions are collected via topics
+        RRNA_COUNT(ch_inputs, ch_bam_split.rrna, ch_bed)
+        ch_rrna_out = RRNA_COUNT.out.qc_reports
     } else {
-        ch_rseqc_out = ch_inputs.map { meta -> [meta, []] }
+        ch_rrna_out = ch_inputs.map { meta -> [meta, []] }
     }
 
     //
@@ -291,14 +293,16 @@ workflow RNA_STANDARD_WORKFLOW {
             }
             .collectFile(name: 'replace_names.tsv', newLine: true)
 
+        // Drop RustQC's biotype %rRNA file from the report — it's unreliable on GRCh38
+        // (under-annotated rDNA + multi-mapper exclusion). The samtools count is the rRNA metric.
+        def dropRustqcRrna = { fs -> (fs instanceof List ? fs : [fs]).findAll { f -> f && !"${f.name}".contains('biotype_counts_rrna') } }
+
         // Group QC files by sample (group_id) for per-sample reports.
-        // Both rRNA counters (whichever ran) are included so their numbers sit side by side.
-        // MarkDuplicates/Picard metrics are intentionally excluded — duplication is already
-        // covered by dupRadar + Samtools, and library complexity by Preseq (see CLAUDE.md).
+        // MarkDuplicates/Picard metrics intentionally excluded (redundant; see CLAUDE.md).
         ch_multiqc_per_sample = channel.empty()
             .mix(ch_fastqc_out.map { meta, files -> [meta.key, files] })
-            .mix(ch_rustqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
-            .mix(ch_rseqc_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
+            .mix(ch_rustqc_out.map { meta, files -> [meta.group_id ?: meta.key, dropRustqcRrna(files)] })
+            .mix(ch_rrna_out.map { meta, files -> [meta.group_id ?: meta.key, files] })
             .filter { group_id, files -> files }
             .groupTuple(by: 0)
             .map { group_id, file_lists ->
@@ -321,8 +325,8 @@ workflow RNA_STANDARD_WORKFLOW {
         // MarkDuplicates/Picard metrics excluded (redundant; also avoids the Picard
         // library-name row that otherwise duplicated each sample). See CLAUDE.md.
         ch_multiqc_aggregated = channel.empty()
-            .mix(ch_rustqc_out.map { meta, files -> files })
-            .mix(ch_rseqc_out.map { meta, files -> files })
+            .mix(ch_rustqc_out.map { meta, files -> dropRustqcRrna(files) })
+            .mix(ch_rrna_out.map { meta, files -> files })
             .flatten()
             .filter { it }
             .collect()
