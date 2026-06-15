@@ -8,13 +8,13 @@ import WorkflowOncoanalyser
 // Import modules
 include { RSEQC_BAMSTAT }         from '../../../modules/nf-core/rseqc/bamstat/main'
 include { RSEQC_READDUPLICATION } from '../../../modules/nf-core/rseqc/readduplication/main'
-include { RSEQC_SPLITBAM }        from '../../../modules/local/rseqc_splitbam/main'
+include { SAMTOOLS_RRNA_COUNT }   from '../../../modules/local/samtools/rrna_count/main'
 
 workflow RSEQC_ANALYSIS {
     take:
         ch_inputs         // [meta]
         ch_tumor_rna_bam  // [meta, bam, bai]
-        ch_bed            // [meta2, bed] (add this to your workflow inputs)
+        ch_bed            // [meta2, bed] (rRNA regions)
 
     main:
         // Sort inputs
@@ -32,7 +32,7 @@ workflow RSEQC_ANALYSIS {
                     return meta
             }
 
-        // Inputs for RSeQC modules ([meta, bam, bai])
+        // Common per-sample meta ([meta, bam, bai])
         ch_rseqc_inputs = ch_inputs_sorted.runnable
             .map { meta, tumor_bam, tumor_bai ->
                 def meta_sample = Utils.getTumorRnaSample(meta)
@@ -46,28 +46,16 @@ workflow RSEQC_ANALYSIS {
                 [meta_rseqc, tumor_bam, tumor_bai]
             }
 
-        // Inputs for splitbam ([meta, bam, bai], [meta2, bed])
-        ch_splitbam_inputs = ch_inputs_sorted.runnable
-            .map { meta, tumor_bam, tumor_bai ->
-                def meta_sample = Utils.getTumorRnaSample(meta)
-                def meta_splitbam = [
-                    key: meta.group_id,
-                    id: "${meta.group_id}_${meta_sample.sample_id}",
-                    sample_id: Utils.getTumorRnaSampleName(meta),
-                    subject_id: meta.subject_id,
-                    group_id: meta.group_id,
-                ]
-                [meta_splitbam, tumor_bam, tumor_bai]
-            }
-
         // Run RSeQC modules
         // Note: versions are collected via topics, no manual collection needed
         RSEQC_BAMSTAT(ch_rseqc_inputs)
 
         RSEQC_READDUPLICATION(ch_rseqc_inputs)
 
-        // Run splitbam (requires both BAM/BAI and BED)
-        RSEQC_SPLITBAM(ch_splitbam_inputs, ch_bed)
+        // rRNA quantification via samtools interval overlap against the rRNA BED.
+        // Same interval method as RSeQC split_bam, but a single samtools pass (no in/ex/junk
+        // BAMs written) -> much faster. Emits a MultiQC custom-content YAML + a stats file.
+        SAMTOOLS_RRNA_COUNT(ch_rseqc_inputs, ch_bed)
 
         // Restore meta for outputs
         ch_bamstat_out     = WorkflowOncoanalyser.restoreMeta(RSEQC_BAMSTAT.out.txt, ch_inputs)
@@ -76,13 +64,10 @@ workflow RSEQC_ANALYSIS {
         ch_readdup_pdf_out = WorkflowOncoanalyser.restoreMeta(RSEQC_READDUPLICATION.out.pdf, ch_inputs)
         ch_readdup_r_out   = WorkflowOncoanalyser.restoreMeta(RSEQC_READDUPLICATION.out.rscript, ch_inputs)
 
-        ch_splitbam_in_bam   = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.in_bam, ch_inputs)
-        ch_splitbam_ex_bam   = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.ex_bam, ch_inputs)
-        ch_splitbam_junk_bam = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.junk_bam, ch_inputs)
-        ch_splitbam_stats    = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.stats, ch_inputs)
-        ch_splitbam_multiqc  = WorkflowOncoanalyser.restoreMeta(RSEQC_SPLITBAM.out.multiqc, ch_inputs)
+        ch_rrna_stats   = WorkflowOncoanalyser.restoreMeta(SAMTOOLS_RRNA_COUNT.out.stats, ch_inputs)
+        ch_rrna_multiqc = WorkflowOncoanalyser.restoreMeta(SAMTOOLS_RRNA_COUNT.out.multiqc, ch_inputs)
 
-        // Collect QC outputs for MultiQC
+        // Collect QC outputs for MultiQC (the rRNA custom-content YAML; not the stats txt)
         ch_qc_reports = channel.empty()
             .mix(
                 ch_bamstat_out,
@@ -90,11 +75,7 @@ workflow RSEQC_ANALYSIS {
                 ch_readdup_pos_out,
                 ch_readdup_pdf_out,
                 ch_readdup_r_out,
-                ch_splitbam_in_bam,
-                ch_splitbam_ex_bam,
-                ch_splitbam_junk_bam,
-                ch_splitbam_stats,
-                ch_splitbam_multiqc
+                ch_rrna_multiqc
             )
 
         // Add skipped samples with empty outputs
@@ -103,6 +84,6 @@ workflow RSEQC_ANALYSIS {
 
     emit:
         qc_reports = ch_qc_reports_final
-        splitbam_stats = ch_splitbam_stats  // [meta, stats_file] for rRNA QC check
+        splitbam_stats = ch_rrna_stats  // [meta, stats_file] (rRNA counts; emit name kept for compatibility)
         // Note: versions are collected via topics, not emitted here
 }
