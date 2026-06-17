@@ -2,12 +2,12 @@ process ISOFOX {
     tag "${meta.id}"
     label 'process_medium'
 
-    // Conda disabled: Isofox 2.0-beta.6 is not on Bioconda (newest is 1.7.2), so a conda run
+    // Conda disabled: Isofox 2.0.1 is not on Bioconda (newest there is 1.7.2), so a conda run
     // would silently use the wrong version. Use the HMF Docker Hub image (Singularity auto-converts
     // it via docker://). Fully-qualified with docker.io/ so the quay.io default registry isn't
     // prepended. Re-enable conda only once 2.0 lands on Bioconda.
     // conda "${moduleDir}/environment.yml"
-    container 'docker.io/hartwigmedicalfoundation/isofox:2.0-beta.6'
+    container 'docker.io/hartwigmedicalfoundation/isofox:2.0.1'
 
     input:
     tuple val(meta), path(bam), path(bai)
