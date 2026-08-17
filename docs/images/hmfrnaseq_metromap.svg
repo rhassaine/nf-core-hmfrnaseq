@@ -2,29 +2,29 @@
   <defs>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Maven+Pro:wght@400;500;600;700;800&amp;display=swap');
-      
+
       text {
         font-family: 'Maven Pro', 'Segoe UI', sans-serif;
       }
-      
+
       .title {
         font-size: 28px;
         font-weight: 800;
         letter-spacing: -0.5px;
       }
-      
+
       .stage-number {
         font-size: 36px;
         font-weight: 800;
         fill: #c0c8d4;
       }
-      
+
       .tool-label {
         font-size: 15px;
         font-weight: 700;
         fill: #1a202c;
       }
-      
+
       .tool-sublabel {
         font-size: 11px;
         font-weight: 500;
@@ -48,11 +48,6 @@
         font-weight: 700;
         fill: white;
         text-anchor: middle;
-      }
-
-      .gate-label {
-        font-size: 12px;
-        font-weight: 700;
       }
     </style>
 
@@ -78,15 +73,15 @@
   <rect x="240" y="24" width="490" height="280" rx="14" fill="#eef1f5" stroke="#dde3eb" stroke-width="1"/>
   <text x="262" y="68" class="stage-number">2</text>
 
-  <!-- Stage 3: RNA QC + rRNA Gate -->
-  <rect x="746" y="24" width="400" height="550" rx="14" fill="#eef1f5" stroke="#dde3eb" stroke-width="1"/>
+  <!-- Stage 3: RNA QC (RustQC + RSeQC in parallel, no gate) -->
+  <rect x="746" y="24" width="400" height="280" rx="14" fill="#eef1f5" stroke="#dde3eb" stroke-width="1"/>
   <text x="768" y="68" class="stage-number">3</text>
 
   <!-- Stage 4: Reports -->
   <rect x="1162" y="24" width="250" height="280" rx="14" fill="#eef1f5" stroke="#dde3eb" stroke-width="1"/>
   <text x="1184" y="68" class="stage-number">4</text>
 
-  <!-- Stage 5: Analysis -->
+  <!-- Stage 5: Analysis (Isofox — runs in parallel off the aligned BAM) -->
   <rect x="1162" y="320" width="250" height="254" rx="14" fill="#eef1f5" stroke="#dde3eb" stroke-width="1"/>
   <text x="1184" y="362" class="stage-number">5</text>
 
@@ -98,51 +93,39 @@
   <path d="M 130,210 H 670"
         fill="none" stroke="#38a169" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- === BLUE: QC LINE === -->
-  <path d="M 130,210 V 160 Q 130,120 160,120 H 170"
+  <!-- === BLUE: FastQC → MultiQC LINE === -->
+  <path d="M 130,210 V 140 Q 130,100 160,100 H 170"
         fill="none" stroke="#3182ce" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M 170,120 H 1290"
+  <path d="M 170,100 H 1290"
         fill="none" stroke="#3182ce" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- === ORANGE: RNA QC LINES === -->
+  <!-- === ORANGE: RNA QC LINES (RustQC + RSeQC in parallel) === -->
   <!-- Trunk from MarkDuplicates -->
   <path d="M 670,210 H 810"
         fill="none" stroke="#dd6b20" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- bam_stat branch — smooth S-curve up -->
-  <path d="M 810,210 C 840,210 860,210 870,195 C 880,180 880,165 900,160"
+  <!-- RustQC branch — smooth S-curve up -->
+  <path d="M 810,210 C 850,210 880,205 900,185 C 915,170 920,160 940,160"
         fill="none" stroke="#dd6b20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- read_dup branch — straight through -->
-  <path d="M 810,210 H 900"
+  <!-- RSeQC branch — smooth S-curve down -->
+  <path d="M 810,210 C 850,210 880,213 900,229 C 915,242 920,244 940,244"
         fill="none" stroke="#dd6b20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- split_bam branch — smooth S-curve down -->
-  <path d="M 810,210 C 840,210 860,210 870,230 C 880,250 880,270 900,275"
-        fill="none" stroke="#dd6b20" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- Merge back: bam_stat → merge point (smooth S-curve) -->
-  <path d="M 900,160 C 930,160 960,160 975,175 C 990,190 995,210 1020,210"
+  <!-- RustQC → merge point (smooth S-curve) -->
+  <path d="M 940,160 C 985,160 1010,165 1025,180 C 1038,193 1045,205 1060,210"
         fill="none" stroke="#dd6b20" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- read_dup straight to merge -->
-  <path d="M 900,210 H 1020"
-        fill="none" stroke="#dd6b20" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- split_bam → merge point (smooth S-curve) -->
-  <path d="M 900,275 C 930,275 960,275 975,255 C 990,235 995,210 1020,210"
+  <!-- RSeQC → merge point (smooth S-curve) -->
+  <path d="M 940,244 C 985,244 1010,241 1025,232 C 1038,224 1045,215 1060,210"
         fill="none" stroke="#dd6b20" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- Merged orange line to MultiQC — smooth double curve up -->
-  <path d="M 1020,210 C 1060,210 1090,210 1100,185 C 1110,160 1110,140 1125,125 C 1140,112 1160,120 1290,120"
+  <path d="M 1060,210 C 1110,210 1140,205 1160,178 C 1180,150 1200,115 1230,103 C 1255,97 1275,100 1290,100"
         fill="none" stroke="#dd6b20" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- === TEAL: rRNA GATE LINE === -->
-  <!-- split_bam → down → curve right to rRNA Gate -->
-  <path d="M 900,275 V 400 Q 900,430 930,430 H 1000"
-        fill="none" stroke="#319795" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- rRNA Gate → right → down → right → Isofox -->
-  <path d="M 1040,430 H 1080 Q 1100,430 1100,450 V 500 Q 1100,520 1120,520 H 1287"
-        fill="none" stroke="#319795" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- === PURPLE: ISOFOX LINE (parallel, straight off MarkDuplicates — no gate) === -->
+  <path d="M 670,210 C 695,210 700,225 700,250 V 490 C 700,515 720,520 745,520 H 1287"
+        fill="none" stroke="#805ad5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
 
   <!-- ============================================================ -->
   <!-- STATIONS                                                     -->
@@ -163,8 +146,8 @@
   </g>
 
   <!-- FastQC station -->
-  <circle cx="170" cy="120" r="8" fill="white" stroke="#3182ce" stroke-width="3.5"/>
-  <text x="170" y="104" class="tool-label" text-anchor="middle">FastQC</text>
+  <circle cx="170" cy="100" r="8" fill="white" stroke="#3182ce" stroke-width="3.5"/>
+  <text x="170" y="84" class="tool-label" text-anchor="middle">FastQC</text>
 
   <!-- STAR station -->
   <circle cx="340" cy="210" r="8" fill="white" stroke="#38a169" stroke-width="3.5"/>
@@ -181,60 +164,47 @@
   <text x="545" y="194" class="tool-label" text-anchor="middle">Sambamba</text>
   <text x="545" y="244" class="tool-sublabel" text-anchor="middle">Merge</text>
 
-  <!-- MarkDuplicates station -->
+  <!-- MarkDuplicates station (fan-out node: QC + Isofox branch here, in parallel) -->
   <circle cx="670" cy="210" r="10" fill="white" stroke="#38a169" stroke-width="4"/>
   <circle cx="670" cy="210" r="4" fill="#38a169"/>
   <text x="670" y="190" class="tool-label" text-anchor="middle">MarkDuplicates</text>
   <text x="670" y="244" class="tool-sublabel" text-anchor="middle">GATK</text>
 
-  <!-- bam_stat station -->
-  <circle cx="900" cy="160" r="7" fill="white" stroke="#dd6b20" stroke-width="3"/>
-  <text x="900" y="144" class="tool-label" text-anchor="middle">bam_stat</text>
+  <!-- RustQC station -->
+  <circle cx="940" cy="160" r="9" fill="white" stroke="#dd6b20" stroke-width="3.5"/>
+  <circle cx="940" cy="160" r="3.5" fill="#dd6b20"/>
+  <text x="940" y="144" class="tool-label" text-anchor="middle">RustQC</text>
+  <text x="940" y="128" class="tool-sublabel" text-anchor="middle">RNA QC · biotypes</text>
 
-  <!-- read_dup station -->
-  <circle cx="900" cy="210" r="7" fill="white" stroke="#dd6b20" stroke-width="3"/>
-  <text x="920" y="227" class="tool-label" text-anchor="start">read_dup</text>
+  <!-- RSeQC station -->
+  <circle cx="940" cy="244" r="9" fill="white" stroke="#dd6b20" stroke-width="3.5"/>
+  <circle cx="940" cy="244" r="3.5" fill="#dd6b20"/>
+  <text x="940" y="272" class="tool-label" text-anchor="middle">RSeQC</text>
+  <text x="940" y="287" class="tool-sublabel" text-anchor="middle">split_bam · rRNA</text>
 
-  <!-- split_bam station -->
-  <circle cx="900" cy="275" r="8" fill="white" stroke="#dd6b20" stroke-width="3.5"/>
-  <circle cx="900" cy="275" r="3" fill="#dd6b20"/>
-  <text x="920" y="296" class="tool-label" text-anchor="start">split_bam</text>
+  <!-- Merge point station (where RustQC + RSeQC rejoin toward MultiQC) -->
+  <circle cx="1060" cy="210" r="7" fill="white" stroke="#dd6b20" stroke-width="3"/>
 
-  <!-- Merge point station (where 3 RSeQC lines rejoin) -->
-  <circle cx="1020" cy="210" r="7" fill="white" stroke="#dd6b20" stroke-width="3"/>
-
-  <!-- rRNA Gate diamond -->
-  <g transform="translate(1020, 430)">
-    <rect x="-17" y="-17" width="34" height="34" rx="4" transform="rotate(45)" fill="#e53e3e"/>
-    <text x="0" y="5" fill="white" font-size="14" font-weight="800" text-anchor="middle" font-family="Maven Pro, sans-serif">?</text>
-  </g>
-  <text x="1020" y="470" class="tool-label" text-anchor="middle">rRNA Gate</text>
-
-  <!-- Pass / Fail toggle on the teal line -->
-  <rect x="1170" y="509" width="40" height="22" rx="11" fill="#319795" stroke="white" stroke-width="2"/>
-  <circle cx="1199" cy="520" r="8" fill="white" stroke="#319795" stroke-width="1.5"/>
-  <text x="1190" y="504" class="tool-sublabel" text-anchor="middle" fill="#319795" font-weight="700">Pass / Fail</text>
-
-  <!-- Isofox station (terminus) -->
+  <!-- Isofox station (parallel analysis terminus — no rRNA gate) -->
   <circle cx="1287" cy="520" r="11" fill="#1a202c" stroke="white" stroke-width="3"/>
   <text x="1287" y="554" class="tool-label" text-anchor="middle">Isofox</text>
-  <text x="1287" y="568" class="tool-sublabel" text-anchor="middle">Quantification</text>
+  <text x="1287" y="568" class="tool-sublabel" text-anchor="middle">Quantification &amp; Fusions</text>
 
-  <!-- MultiQC station — at the end of blue+orange merged lines -->
-  <circle cx="1290" cy="120" r="13" fill="white" stroke="#2d3748" stroke-width="4.5"/>
-  <circle cx="1290" cy="120" r="5" fill="#2d3748"/>
-  <text x="1290" y="152" class="tool-label" text-anchor="middle">MultiQC</text>
-  <text x="1290" y="168" class="tool-sublabel" text-anchor="middle">Reports</text>
+  <!-- MultiQC station — at the end of blue + orange merged lines -->
+  <circle cx="1290" cy="100" r="13" fill="white" stroke="#2d3748" stroke-width="4.5"/>
+  <circle cx="1290" cy="100" r="5" fill="#2d3748"/>
+  <text x="1290" y="132" class="tool-label" text-anchor="middle">MultiQC</text>
+  <text x="1290" y="148" class="tool-sublabel" text-anchor="middle">Reports</text>
 
   <!-- ============================================================ -->
   <!-- SECTION LABELS                                               -->
   <!-- ============================================================ -->
-  <text x="920" y="96" class="stage-label" fill="#dd6b20">RNA QC (RSEQC)</text>
+  <text x="946" y="64" class="stage-label" fill="#dd6b20" text-anchor="middle">RNA QC (PARALLEL)</text>
   <text x="480" y="278" class="stage-label" fill="#38a169">ALIGNMENT</text>
 
-  <text x="1290" y="200" class="stage-label" fill="#2d3748" text-anchor="middle">REPORTS</text>
-  <text x="1290" y="216" class="tool-sublabel" text-anchor="middle">Individual &amp; Aggregated</text>
-  <text x="1290" y="390" class="stage-label" fill="#805ad5" text-anchor="middle">ANALYSIS</text>
+  <text x="1290" y="180" class="stage-label" fill="#2d3748" text-anchor="middle">REPORTS</text>
+  <text x="1290" y="196" class="tool-sublabel" text-anchor="middle">Individual &amp; Aggregated</text>
+  <text x="1287" y="392" class="stage-label" fill="#805ad5" text-anchor="middle">ANALYSIS</text>
 
   <!-- ============================================================ -->
   <!-- TITLE                                                        -->
@@ -248,7 +218,7 @@
     <text x="0" y="0" class="tool-label" style="font-size:13px; letter-spacing:1px">STAGES</text>
     <text x="0" y="27" class="legend-text">1. Pre-processing</text>
     <text x="0" y="51" class="legend-text">2. Alignment</text>
-    <text x="0" y="75" class="legend-text">3. RNA QC &amp; rRNA Gate</text>
+    <text x="0" y="75" class="legend-text">3. RNA QC</text>
     <text x="0" y="99" class="legend-text">4. Reports (MultiQC)</text>
     <text x="0" y="123" class="legend-text">5. Analysis (Isofox)</text>
   </g>
