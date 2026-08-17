@@ -104,7 +104,7 @@ nextflow run nf-core/hmfrnaseq \
 
 nf-core/hmfrnaseq was originally written by Rayan Hassaine.
 
-We thank the [Hartwig Medical Foundation](https://www.hartwigmedicalfoundation.nl/) for developing the WiGiTS tools integrated in this pipeline.
+Thank you the [Hartwig Medical Foundation](https://www.hartwigmedicalfoundation.nl/) for developing the WiGiTS tools integrated in this pipeline.
 
 ## Contributions and Support
 
