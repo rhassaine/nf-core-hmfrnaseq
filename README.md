@@ -22,7 +22,7 @@
 ```mermaid
 flowchart LR
     subgraph Input
-        FASTQ[FASTQ files]
+        FASTQ[FASTQ / BAM]
     end
 
     subgraph QC
@@ -33,14 +33,9 @@ flowchart LR
         STAR[STAR] --> SORT[SAMtools Sort] --> MERGE[Sambamba Merge] --> MARKDUP[MarkDuplicates]
     end
 
-    subgraph "RNA QC"
-        BAMSTAT[RSeQC BamStat]
-        READDUP[RSeQC ReadDup]
-        SPLITBAM[RSeQC SplitBAM]
-    end
-
-    subgraph "rRNA Gate"
-        GATE{Pass/Fail}
+    subgraph "RNA QC (parallel)"
+        RUSTQC[RustQC]
+        RSEQC[RSeQC split_bam]
     end
 
     subgraph Analysis
@@ -53,17 +48,16 @@ flowchart LR
 
     FASTQ --> FASTQC
     FASTQ --> STAR
-    MARKDUP --> BAMSTAT
-    MARKDUP --> READDUP
-    MARKDUP --> SPLITBAM
-    SPLITBAM --> GATE
-    GATE -->|Pass| ISOFOX
-    BAMSTAT --> MULTIQC
-    READDUP --> MULTIQC
-    SPLITBAM --> MULTIQC
+    MARKDUP --> RUSTQC
+    MARKDUP --> RSEQC
+    MARKDUP --> ISOFOX
+    RUSTQC --> MULTIQC
+    RSEQC --> MULTIQC
     FASTQC --> MULTIQC
     ISOFOX --> MULTIQC
 ```
+
+> The flowchart above shows the default workflow. A FastQC-only mode is also available via `--mode fastqc_workflow` (runs FastQC on the raw reads, then stops — no alignment or downstream analysis).
 
 </details>
 
@@ -71,10 +65,11 @@ flowchart LR
 2. Alignment ([`STAR`](https://github.com/alexdobin/STAR))
 3. BAM processing ([`SAMtools`](http://www.htslib.org/), [`Sambamba`](https://lomereiter.github.io/sambamba/))
 4. Duplicate marking ([`GATK MarkDuplicates`](https://gatk.broadinstitute.org/))
-5. RNA QC metrics ([`RSeQC`](http://rseqc.sourceforge.net/))
-6. rRNA contamination check and filtering
-7. Transcript quantification and fusion detection ([`Isofox`](https://github.com/hartwigmedical/hmftools/tree/master/isofox))
-8. QC report ([`MultiQC`](http://multiqc.info/))
+5. RNA QC and rRNA content ([`RustQC`](https://github.com/seqeralabs/rustqc), [`RSeQC`](http://rseqc.sourceforge.net/)) — run in parallel with Isofox
+6. Transcript quantification and fusion detection ([`Isofox`](https://github.com/hartwigmedical/hmftools/tree/master/isofox))
+7. QC report ([`MultiQC`](http://multiqc.info/))
+
+A FastQC-only mode is also available (`--mode fastqc_workflow`), which runs step 1 and stops.
 
 ## Usage
 
