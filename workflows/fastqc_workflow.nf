@@ -12,7 +12,7 @@ import Utils
 import Constants
 
 include { FASTQC }   from '../modules/nf-core/fastqc/main'
-include { MULTIQC }  from '../modules/nf-core/multiqc/main'
+include { MULTIQC }  from '../modules/local/multiqc/main'
 
 // Main workflow block
 workflow FASTQC_WORKFLOW {
@@ -50,9 +50,16 @@ workflow FASTQC_WORKFLOW {
         FASTQC(ch_fastq_for_qc)
 
         // Collect FastQC outputs for MultiQC
+        // MULTIQC here is the local per-sample-aware module (modules/local/multiqc),
+        // same one rna_workflow.nf uses — it requires a meta in its input tuple, so
+        // this single aggregate report gets a fixed meta (mirrors MULTIQC_AGGREGATED
+        // in rna_workflow.nf). Using the stock modules/nf-core/multiqc module here
+        // instead used to leave `meta` unbound in the shared modules.config publishDir
+        // directive, publishing every report into a literal "[:]" folder.
         ch_multiqc_files = channel.empty()
             .mix(FASTQC.out.zip.map { meta, file -> file })
             .collect()
+            .map { files -> [[id: 'FastQC', key: 'FastQC'], files] }
 
         // Run MultiQC on FastQC outputs
         MULTIQC(
