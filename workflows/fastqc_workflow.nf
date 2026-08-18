@@ -11,8 +11,8 @@ nextflow.enable.dsl=2
 import Utils
 import Constants
 
-include { FASTQC }   from '../modules/nf-core/fastqc/main'
-include { MULTIQC }  from '../modules/local/multiqc/main'
+include { FASTQC }                        from '../modules/nf-core/fastqc/main'
+include { MULTIQC as MULTIQC_AGGREGATED } from '../modules/local/multiqc/main'
 
 // Main workflow block
 workflow FASTQC_WORKFLOW {
@@ -50,19 +50,21 @@ workflow FASTQC_WORKFLOW {
         FASTQC(ch_fastq_for_qc)
 
         // Collect FastQC outputs for MultiQC
-        // MULTIQC here is the local per-sample-aware module (modules/local/multiqc),
-        // same one rna_workflow.nf uses — it requires a meta in its input tuple, so
-        // this single aggregate report gets a fixed meta (mirrors MULTIQC_AGGREGATED
-        // in rna_workflow.nf). Using the stock modules/nf-core/multiqc module here
-        // instead used to leave `meta` unbound in the shared modules.config publishDir
-        // directive, publishing every report into a literal "[:]" folder.
+        // MULTIQC_AGGREGATED is the local per-sample-aware module (modules/local/multiqc)
+        // aliased the same way rna_workflow.nf aliases its own single combined report —
+        // this publishes flat to "${params.outdir}/multiqc" (conf/modules.config's
+        // withName: 'MULTIQC_AGGREGATED' rule), not nested under a per-sample folder.
+        // The fixed meta only feeds the report's filename prefix (FastQC_multiqc_report.*),
+        // it no longer drives the publish path. Using the stock modules/nf-core/multiqc
+        // module (no meta at all) here instead used to leave `meta` unbound in the
+        // shared plain-MULTIQC publishDir directive, publishing into a literal "[:]" folder.
         ch_multiqc_files = channel.empty()
             .mix(FASTQC.out.zip.map { meta, file -> file })
             .collect()
             .map { files -> [[id: 'FastQC', key: 'FastQC'], files] }
 
         // Run MultiQC on FastQC outputs
-        MULTIQC(
+        MULTIQC_AGGREGATED(
             ch_multiqc_files,
             [], // multiqc_config
             [], // extra_multiqc_config
@@ -75,13 +77,13 @@ workflow FASTQC_WORKFLOW {
         // FASTQC now publishes via the `versions` topic channel (see
         // modules/nf-core/fastqc/main.nf), not a regular `versions` emit.
         ch_versions = channel.empty()
-            .mix(MULTIQC.out.versions)
+            .mix(MULTIQC_AGGREGATED.out.versions)
 
     emit:
         fastqc_html     = FASTQC.out.html
         fastqc_zip      = FASTQC.out.zip
-        multiqc_report  = MULTIQC.out.report
-        multiqc_data    = MULTIQC.out.data
-        multiqc_plots   = MULTIQC.out.plots
+        multiqc_report  = MULTIQC_AGGREGATED.out.report
+        multiqc_data    = MULTIQC_AGGREGATED.out.data
+        multiqc_plots   = MULTIQC_AGGREGATED.out.plots
         versions        = ch_versions
 }
