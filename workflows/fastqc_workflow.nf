@@ -65,8 +65,9 @@ workflow FASTQC_WORKFLOW {
         )
 
         // Collect version info
+        // FASTQC now publishes via the `versions` topic channel (see
+        // modules/nf-core/fastqc/main.nf), not a regular `versions` emit.
         ch_versions = channel.empty()
-            .mix(FASTQC.out.versions)
             .mix(MULTIQC.out.versions)
 
     emit:
